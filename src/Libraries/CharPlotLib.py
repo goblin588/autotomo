@@ -94,7 +94,7 @@ def plot_characterisation(data, graph_title, angles, plot_type = None,
         labels = list(measurement_basis.keys())
         measured_values = [normalized_data[basis][k][0] for k in labels]
         err = [normalized_data[basis][k][1] for k in labels]
-        theoretical_values = [float(targetProb[k].real) for k in labels]
+        theoretical_values = [targetProb[k] for k in labels]
         x = np.arange(len(normalized_data[basis].keys()))  
 
         if multi==True:
@@ -191,7 +191,7 @@ def plot_single(data, graph_title, angles,  save_plot=True, save_data=True, show
     labels = list(measurement_basis.keys())
     measured_values = [normalized_data[k][0] for k in labels]
     err = [normalized_data[k][1] for k in labels]
-    theoretical_values = [float(targetProb[k].real) for k in labels]
+    theoretical_values = [targetProb[k] for k in labels]
     x = np.arange(len(labels))  
 
     bar_width = 0.35  

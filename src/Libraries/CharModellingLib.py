@@ -55,17 +55,28 @@ def normalise_measurements(measurements):
 
 def UnitaryToProb(U, measurementBasis, input):
     """
-    Converts unitary into probability matrix
+    Converts unitary into probability distribution.
+    Returns plain floats, not np.matrix objects.
     """
     res_prob_mat = {}
     epsilon = 1e-12
 
     for k1, k2 in [("H", "V"), ("A", "D"), ("R", "L")]:
-        denom = (np.square(np.abs((np.conjugate(np.transpose(measurementBasis[k1])))@(U@(input))))) + (np.square(np.abs((np.conjugate(np.transpose(measurementBasis[k2])))@(U@(input))))) + epsilon
-        res_prob_mat[k1] = (np.square(np.abs((np.conjugate(np.transpose(measurementBasis[k1])))@(U@(input))))) / denom
-        res_prob_mat[k2] = (np.square(np.abs((np.conjugate(np.transpose(measurementBasis[k2])))@(U@(input))))) / denom
+        # np.matrix inner products return (1,1) matrices — squeeze to scalar
+        def inner_prod_sq(bra, ket):
+            val = np.conjugate(np.transpose(bra)) @ ket
+            return float(np.squeeze(np.asarray(np.square(np.abs(val)))))
+
+        p1 = inner_prod_sq(measurementBasis[k1], U @ input)
+        p2 = inner_prod_sq(measurementBasis[k2], U @ input)
+        denom = p1 + p2 + epsilon
+
+        res_prob_mat[k1] = p1 / denom
+        res_prob_mat[k2] = p2 / denom
+
     return res_prob_mat
 
+    
 def getUnitary(qf12=0,hf2=0,qf1=0,hf=0, m3=0,m2=0,h12=0,q12=0,m1=0,h1=0,q1=0,qin2=0,hin2=0):
     """ 
     Returns 4x4 Unitary Matrix.
