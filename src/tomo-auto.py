@@ -8,7 +8,7 @@ This characterisation requires connection to the following:
 import Interfaces.PM100USB as pml
 import Libraries.TomoLibrary as tl
 import Libraries.CharModellingLib as cml
-from Libraries.BasisVectors import input_basis_angles, basis_angles
+from Libraries.BasisVectors import basis_angles
 from Libraries.Settings import HWP_IN, QWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT
 from Libraries.AngMenu import angle_menu
 from Libraries.NotificationService.main import send_email
@@ -74,7 +74,7 @@ def polarisation_tuner():
 
 def single_tomo(basis):
     print("Performing Tomography for single Input Basis : |{}>".format(basis))
-    tl.move_stage(HWP_IN, input_basis_angles[basis][0], COMPORT)
+    tl.move_stage(HWP_IN, basis_angles[basis][0], COMPORT)
     res = {}
     with pml.PM100USB(wavelength=1550, verbose=True) as pm:
         res[basis] = tl.single_tomography(qwp = QWP_TOM, hwp = HWP_TOM, powermeter = pm, smc_port = COMPORT)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         basis = input("For what input state should tomography be performed? 'f' for all basis, 'm' for multi-run or 't' for quick tuning polarisation\nEnter: ").upper()
 
         # Single Input Tomography
-        if basis in input_basis_angles.keys():
+        if basis in ['H','V','A','D','R','L']:
             single_tomo(basis)
             if email_notification:
                 notif_subject += f': Single Tomo |{basis}>'
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             prepare_s0_state(4)
         else: 
             print("Input basis must be one of the following: ", end="")
-            for key in input_basis_angles.keys():
+            for key in ['H', 'V', 'A', 'D']:
                 print("'" + key + "', ", end="")
             print("\nEnter your selection or Ctrl D to cancel:")
 
