@@ -2,7 +2,7 @@
 Functions associated with Tomography control / movement of stages
 """
 
-from Libraries.BasisVectors import basis_angles, input_basis_angles
+from Libraries.BasisVectors import basis_angles
 import Interfaces.SMC100 as smc
 import time
 
@@ -13,7 +13,7 @@ def full_input_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
     # for basis in input_basis_angles.keys():
     for basis in ['H', 'V', 'A', 'D']:
         print("Setting New Input Basis : |{}>".format(basis))
-        move_stage(hwp_in, input_basis_angles[basis][0], smc_port)
+        move_stage(hwp_in, basis_angles[basis][0], smc_port)
         #Tomography
         res[basis] = single_tomography(qwp, hwp, powermeter, smc_port)
         
@@ -24,7 +24,7 @@ def HV_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
     # Iterates over inputs H,V,A,D,R,L and performs a tomo at each
     for basis in ['H', 'V']:
         print("Setting New Input Basis : |{}>".format(basis))
-        move_stage(hwp_in, input_basis_angles[basis][0], smc_port)
+        move_stage(hwp_in, basis_angles[basis][0], smc_port)
         #Tomography
         res[basis] = single_tomography(qwp, hwp, powermeter, smc_port)
     return res
