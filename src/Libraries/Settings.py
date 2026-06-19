@@ -6,8 +6,8 @@ Waveplate hardware settings
 
 from Libraries.Waveplate import Waveplate
 
+qwp_in_oa = 4.13
 hwp_in_oa = 54.57+45
-# hwp_in_oa = 4.13+45
 qwp_tom_oa = 107.58
 hwp_tom_oa = 41.50
 qwp_in_2_oa = 131.32
@@ -17,12 +17,14 @@ hwp_in_2_oa = 29.24
 # hwp_in_stage = 7 
 
 hwp_in_stage = 6 
+qwp_in_stage = 7
 
 qwp_tom_stage = 9
 hwp_tom_stage = 4
 qwp_in_2_stage = 8
 hwp_in_2_stage = 1
 
+QWP_IN = Waveplate(qwp_in_stage, qwp_in_oa)
 HWP_IN =  Waveplate(hwp_in_stage, hwp_in_oa)
 QWP_TOM = Waveplate(qwp_tom_stage, qwp_tom_oa)
 HWP_TOM = Waveplate(hwp_tom_stage, hwp_tom_oa)

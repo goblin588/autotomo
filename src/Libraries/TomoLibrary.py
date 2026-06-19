@@ -10,7 +10,8 @@ import time
 def full_input_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
     res = {}
     # Iterates over inputs H,V,A,D,R,L and performs a tomo at each
-    for basis in input_basis_angles.keys():
+    # for basis in input_basis_angles.keys():
+    for basis in ['H', 'V', 'A', 'D']:
         print("Setting New Input Basis : |{}>".format(basis))
         move_stage(hwp_in, input_basis_angles[basis][0], smc_port)
         #Tomography
@@ -31,7 +32,8 @@ def HV_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
 def single_tomography(qwp, hwp, powermeter, smc_port):
     res = {}
     # Iterates through mapping each output H,V,A,D,R,L to detector
-    for basis in basis_angles.keys():
+    # for basis in basis_angles.keys():
+    for basis in ['H', 'V', 'A', 'D', 'R','L']:
         print("Measuring Output |{}>, HWP: {}. QWP {}".format(basis, basis_angles[basis][0], basis_angles[basis][1]))
         # Set HWP 
         move_stage(hwp, basis_angles[basis][0], smc_port)
