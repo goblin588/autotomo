@@ -2,6 +2,7 @@ import numpy as np
 from Unitaries.WaveplateAngles import unitaries_angles
 
 def angle_menu(): 
+    # ADD HF1 and QF1, and include N number 3-6
     angles = {'q1': 0, 
               'h1': 0, 
               'q12': 0, 
@@ -68,14 +69,12 @@ def angle_menu():
     return angles
 
 def generate_title(angles):
-     components_list = ['q1', 'h1','q12','h12', 'qf2', 'hf2', 'qin2','hin2']
-     title = ''
-     for key in angles.keys():
+    components_list = ['q1', 'h1', 'q12', 'h12', 'qf2', 'hf2', 'qin2', 'hin2']
+    title = ''
+    for key in angles.keys():
         if key in components_list and angles[key] != 0:
-             #if the key is a WP and is nonzero add to title 
-            title = title + f'{key}[{angles[key]}]_'
-        if title[-1:] == '_':
-             title = title[:-1]
-     if title == '':
+            title += f'{key}[{angles[key]}]_'
+    title = title.rstrip('_')
+    if title == '':
         title = 'Zeroes'
-     return title
+    return title

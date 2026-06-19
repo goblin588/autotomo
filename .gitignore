@@ -1,3 +1,19 @@
+# Generated / build
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Output data (tracked separately or ignored)
+data/
+
+# Archives and misc
 /Archive
 /Misc
-/__pycache__
+src/Figures/
+
+# IDE
+.vscode/
+.idea/

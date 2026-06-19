@@ -3,8 +3,15 @@ Functions associated with Tomography control / movement of stages
 """
 
 from Libraries.BasisVectors import basis_angles
-import Interfaces.SMC100 as smc
+from Libraries.Settings import SIM_MODE
 import time
+
+if SIM_MODE:
+    from Interfaces.mock import MockSMC100Connection as _Connection, MockSMC100Stage as _Stage
+else:
+    import Interfaces.SMC100 as _smc
+    _Connection = _smc.SMC100Connection
+    _Stage = _smc.SMC100Stage
 
 #region Stage control and Reading 
 def full_input_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
@@ -46,10 +53,9 @@ def single_tomography(qwp, hwp, powermeter, smc_port):
     return res
 
 def move_stage(this_stage, angle, smc_port):
-    with smc.SMC100Connection(port=smc_port) as stages:
-        stage = smc.SMC100Stage(stages, smcID=this_stage.ID)
+    with _Connection(port=smc_port) as stages:
+        stage = _Stage(stages, smcID=this_stage.ID)
         stage.enable()
-        # Move relative to stage optical axis
         stage.move_absolute(angle + this_stage.OA)
         stage.disable()
 #endregion
