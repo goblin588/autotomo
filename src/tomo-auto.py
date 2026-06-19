@@ -9,7 +9,7 @@ import Interfaces.PM100USB as pml
 import Libraries.TomoLibrary as tl
 import Libraries.CharModellingLib as cml
 from Libraries.BasisVectors import input_basis_angles, basis_angles
-from Libraries.Settings import HWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT
+from Libraries.Settings import HWP_IN, QWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT
 from Libraries.AngMenu import angle_menu
 from Libraries.NotificationService.main import send_email
 import Libraries.CharPlotLib as cpl
@@ -44,6 +44,7 @@ notif_subject = 'Tomo Measurement Completed'
 
 def set_stages(basis_in, basis_out):
     tl.move_stage(HWP_IN, basis_angles[basis_in.upper()][0], COMPORT)
+    tl.move_stage(QWP_IN, basis_angles[basis_in.upper()][1], COMPORT)
     tl.move_stage(HWP_IN_2, basis_angles[basis_out.upper()][0], COMPORT)
     tl.move_stage(QWP_IN_2, basis_angles[basis_out.upper()][1], COMPORT)
 
@@ -70,7 +71,6 @@ def polarisation_tuner():
                 print("Measuring D in A OUT")
         print("READY")
         winsound.Beep(frequency, duration)
-
 
 def single_tomo(basis):
     print("Performing Tomography for single Input Basis : |{}>".format(basis))
@@ -124,6 +124,10 @@ def multi_run():
     filepath = filepath + f"{angles['title']}_ITERATIONS"
     cpl.writeData2File(filename=filepath, data=res_OUT, normalised_data=norm_data, angles=angles, plot_type='Multi')
 
+def prepare_s0_state(N):
+    tl.move_stage(HWP_IN, basis_angles['s0_{N}'][0], COMPORT)
+    tl.move_stage(QWP_IN, basis_angles['s0_{N}'][1], COMPORT)
+
 if __name__ == "__main__":
     print("Automated Tomography Characterisation")
 
@@ -164,6 +168,8 @@ if __name__ == "__main__":
         elif basis == 'T':
             polarisation_tuner()
             run = False
+        elif basis == 'S':
+            prepare_s0_state(4)
         else: 
             print("Input basis must be one of the following: ", end="")
             for key in input_basis_angles.keys():
