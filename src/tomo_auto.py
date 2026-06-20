@@ -164,8 +164,7 @@ def main():
             run = False
 
         elif basis == 'S':
-            n_str = input("N value for s0 state (3/4/5/6): ")
-            prepare_s0_state(int(n_str))
+            prepare_s0_state(int(angles['N']))
 
         else:
             print("Valid inputs: H, V, A, D, R, L, F, HV, M, T, S")

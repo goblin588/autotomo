@@ -21,6 +21,8 @@ def angle_menu():
         U = unitaries_angles[u]
     else:
         U = unitaries_angles['3']
+        u = '3'
+    angles['N'] = u
     print("What angles should be set for internal waveplates?")
     print("Enter: \n\t1.  U for all U angles")
     print("\t 2. Any of the following: 'q1', 'h1', 'q12', 'h12', 'qf2', 'hf2', 'qin2', 'hin2'")
@@ -40,8 +42,9 @@ def angle_menu():
             print("Setting all angles to U angles")
             angles = U.copy()
             angles['title'] = 'U'
+            angles['N'] = u
             next = True
-        elif user_input in angles.keys():
+        elif user_input in angles.keys() and user_input not in ('N', 'title'):
                 print("Setting {} to {}".format(user_input, U[user_input]))
                 angles[user_input] = U[user_input]
                 angles['title'] += '{}({}), '.format(user_input, U[user_input])
