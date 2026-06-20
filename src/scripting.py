@@ -27,7 +27,7 @@ print(data)
 avg_data = data['raw_data'][0]
 print(avg_data)
 
-Angles = {'hf2': 55.57, 'qf2': 14.87, 'h1': 175.09, 'q1': 285.9, 'h12': 43.43, 'q12': 11.05, 'hin2': 0, 'qin2': 0, 'm3': 3.74, 'm2': 3.77, 'm1': 3.16, 'm0': 0, 'title': 'U'}
+Angles = {'hf2': 55.57, 'qf2': 14.87, 'h1': 175.09, 'q1': 285.9, 'h2': 43.43, 'q2': 11.05, 'hin2': 0, 'qin2': 0, 'm3': 3.74, 'm2': 3.77, 'm1': 3.16, 'm0': 0, 'title': 'U'}
 cpl.plot_characterisation(avg_data, 'Avg U data n=15', angles=Angles )
 
 
@@ -39,8 +39,8 @@ angles = {'hf2': 55.57,
          'qf2': 14.87,
          'h1': 175.09, 
          'q1': 285.90,
-         'h12': 43.43,
-         'q12': 11.05,
+         'h2': 43.43,
+         'q2': 11.05,
          'hin2': 0,
          'qin2': 0, 
          'm3': 3.74,
@@ -49,9 +49,9 @@ angles = {'hf2': 55.57,
          'm0': 0,
          'title': 'U'}  
 
-searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q12=angles['q12'], 
-                                    h12=angles['h12'], qf12=angles['qf2'], hf2=angles['hf2'], 
-                                    qin2=angles['qin2'], hin2=angles['hin2'],  m0=angles['m0'], 
+searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q2=angles['q2'],
+                                    h2=angles['h2'], qf2=angles['qf2'], hf2=angles['hf2'],
+                                    qin2=angles['qin2'], hin2=angles['hin2'],
                                     m1=angles['m1'], m2=angles['m2'], m3=angles['m3'])
 
 exp_data = data['norm_data'][0]
