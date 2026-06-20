@@ -10,6 +10,11 @@ Run with AUTOTOMO_SIM=1 to use mock hardware (no physical connection needed):
 """
 import argparse
 import datetime
+import os
+import sys
+
+if '--sim' in sys.argv:
+    os.environ['AUTOTOMO_SIM'] = '1'
 
 import Libraries.CharModellingLib as cml
 import Libraries.CharPlotLib as cpl
@@ -124,10 +129,6 @@ def main():
     parser = argparse.ArgumentParser(description='Automated Tomography Characterisation')
     parser.add_argument('--sim', action='store_true', help='Run in simulation mode (no hardware required)')
     args = parser.parse_args()
-
-    if args.sim:
-        import os
-        os.environ['AUTOTOMO_SIM'] = '1'
 
     if SIM_MODE:
         print("[SIM MODE] Running without hardware")
