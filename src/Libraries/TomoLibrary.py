@@ -14,24 +14,26 @@ else:
     _Stage = _smc.SMC100Stage
 
 #region Stage control and Reading 
-def full_input_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
+def full_input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port):
     res = {}
     # Iterates over inputs H,V,A,D,R,L and performs a tomo at each
     # for basis in input_basis_angles.keys():
     for basis in ['H', 'V', 'A', 'D']:
         print("Setting New Input Basis : |{}>".format(basis))
         move_stage(hwp_in, basis_angles[basis][0], smc_port)
+        move_stage(qwp_in, basis_angles[basis][1], smc_port)
         #Tomography
         res[basis] = single_tomography(qwp, hwp, powermeter, smc_port)
         
     return res
 
-def HV_tomography(qwp, hwp, hwp_in, powermeter, smc_port):
+def HV_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port):
     res = {}
     # Iterates over inputs H,V,A,D,R,L and performs a tomo at each
     for basis in ['H', 'V']:
         print("Setting New Input Basis : |{}>".format(basis))
         move_stage(hwp_in, basis_angles[basis][0], smc_port)
+        move_stage(qwp_in, basis_angles[basis][1], smc_port)
         #Tomography
         res[basis] = single_tomography(qwp, hwp, powermeter, smc_port)
     return res

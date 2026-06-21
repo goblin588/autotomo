@@ -79,7 +79,7 @@ def single_tomo(basis, angles):
 def full_tomo(angles):
     print("Performing tomography for all input states")
     with _get_powermeter() as pm:
-        res = tl.full_input_tomography(QWP_TOM, HWP_TOM, HWP_IN, pm, COMPORT)
+        res = tl.full_input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT)
     _beep()
     cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full', show_plot=False)
 
@@ -87,7 +87,7 @@ def full_tomo(angles):
 def hv_tomo(angles):
     print("Performing tomography for H and V input states")
     with _get_powermeter() as pm:
-        res = tl.HV_tomography(QWP_TOM, HWP_TOM, HWP_IN, pm, COMPORT)
+        res = tl.HV_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT)
     cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='HV', show_plot=True)
 
 
