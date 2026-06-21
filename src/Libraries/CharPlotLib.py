@@ -76,9 +76,10 @@ def plot_characterisation(data, graph_title, angles, plot_type = None,
     multi=False
     measurement_basis = basis_vectors
     normalized_data = cml.normalise_full_tomo_data(data)
-    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q12=angles['q12'], 
-                                    h12=angles['h12'], qf12=angles['qf2'], hf2=angles['hf2'], 
-                                    qin2=angles['qin2'], hin2=angles['hin2'], 
+    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q2=angles['q2'],
+                                    h2=angles['h2'], qf2=angles['qf2'], hf2=angles['hf2'],
+                                    qf1=angles.get('qf1', 0), hf1=angles.get('hf1', 0),
+                                    qin2=angles['qin2'], hin2=angles['hin2'],
                                     m1=angles['m1'], m2=angles['m2'], m3=angles['m3'])
     # Create a figure with 4 subplots (2 rows, 3 columns) with larger dimensions
     if len(normalized_data.keys()) % 2 == 0:
@@ -177,9 +178,10 @@ def plot_single(data, graph_title, angles,  save_plot=True, save_data=True, show
     input = data.keys()
     measurement_basis = basis_vectors
     # normalized_data = cml.normalise_full_tomo_data(data)
-    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q12=angles['q12'], 
-                                    h12=angles['h12'], qf12=angles['qf2'], hf2=angles['hf2'], 
-                                    qin2=angles['qin2'], hin2=angles['hin2'], 
+    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q2=angles['q2'],
+                                    h2=angles['h2'], qf2=angles['qf2'], hf2=angles['hf2'],
+                                    qf1=angles.get('qf1', 0), hf1=angles.get('hf1', 0),
+                                    qin2=angles['qin2'], hin2=angles['hin2'],
                                     m1=angles['m1'], m2=angles['m2'], m3=angles['m3'])
     
     # normalized_data = cml.normalise_measurements(data)

@@ -28,12 +28,12 @@ R_2 = (1/np.sqrt(2))*(H_2-(1j*V_2))
 L_2 = (1/np.sqrt(2))*(H_2+(1j*V_2)) 
 
 basis_vectors_2 = {
-    "H": H,
-    "V": V,
-    "A": A,
-    "D": D,
-    "R": R,
-    "L": L
+    "H": H_2,
+    "V": V_2,
+    "A": A_2,
+    "D": D_2,
+    "R": R_2,
+    "L": L_2
 }
 
 # For projection in tomography

@@ -77,29 +77,29 @@ def UnitaryToProb(U, measurementBasis, input):
     return res_prob_mat
 
     
-def getUnitary(qf12=0,hf2=0,qf1=0,hf=0, m3=0,m2=0,h12=0,q12=0,m1=0,h1=0,q1=0,qin2=0,hin2=0):
-    """ 
+def getUnitary(qf2=0,hf2=0,qf1=0,hf1=0, m3=0,m2=0,h2=0,q2=0,m1=0,h1=0,q1=0,qin2=0,hin2=0):
+    """
     Returns 4x4 Unitary Matrix.
     Input: input angles: will default to 0 if not explicitly set.
 
     """
-    QWPf12 = ol.QWP_p2(qf12)
+    QWPf2 = ol.QWP_p2(qf2)
 
     HWPf2 = ol.HWP_p2(hf2)
 
     QWPf1= ol.QWP_p1(qf1)
 
-    HWPf = ol.HWP_p1(hf) 
+    HWPf1 = ol.HWP_p1(hf1)
 
-    HWP12 = ol.HWP_p2(h12)
+    HWP2 = ol.HWP_p2(h2)
 
-    QWP12 = ol.QWP_p2(q12)
+    QWP2 = ol.QWP_p2(q2)
 
     HWP1 = ol.HWP_p1(h1)
 
     QWP1 = ol.QWP_p1(q1)
     
-    QWPin12= ol.QWP_p2(qin2)
+    QWPin2= ol.QWP_p2(qin2)
 
     HWPin2 = ol.HWP_p2(hin2)
 
@@ -110,7 +110,7 @@ def getUnitary(qf12=0,hf2=0,qf1=0,hf=0, m3=0,m2=0,h12=0,q12=0,m1=0,h1=0,q1=0,qin
     M1 = ol.Mirror4(m1,m3)
 
     # U = HWPf2@QWPf12@PBS_dag@M3@M2@M1@HWP12@QWP12@HWP1@QWP1@PBS@HWPin2@M0
-    U = HWPf2@QWPf12@HWPf@QWPf1@PBS_dag@M3@M2@M1@HWP12@QWP12@HWP1@QWP1@PBS@HWPin2@QWPin12
+    U = HWPf2@QWPf2@HWPf1@QWPf1@PBS_dag@M3@M2@M1@HWP2@QWP2@HWP1@QWP1@PBS@HWPin2@QWPin2
     return U
 
 

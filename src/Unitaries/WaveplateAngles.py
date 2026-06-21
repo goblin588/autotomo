@@ -3,8 +3,8 @@ import numpy as np
 U_3_angles = {
     "h1": np.rad2deg(1.57158),
     "q1": np.rad2deg(0.0017101),
-    "h12": np.rad2deg(3.99667),
-    "q12": np.rad2deg(1.92368),
+    "h2": np.rad2deg(3.99667),
+    "q2": np.rad2deg(1.92368),
     "hin2": np.rad2deg(1.58668),
     "qin2": np.rad2deg(4.79562),
     "hf1": np.rad2deg(4.31667),
@@ -21,8 +21,8 @@ U_3_angles = {
 U_4_angles = {
     "h1": np.rad2deg(3.144),
     "q1": np.rad2deg(0.0),
-    "h12": np.rad2deg(0.845031),
-    "q12": np.rad2deg(2.74251),
+    "h2": np.rad2deg(0.845031),
+    "q2": np.rad2deg(2.74251),
     "hin2": np.rad2deg(0.710524),
     "qin2": np.rad2deg(0.0),
     "hf1": np.rad2deg(2.54209),
@@ -38,8 +38,8 @@ U_4_angles = {
 U_5_angles = {
     "h1": np.rad2deg(1.5707),
     "q1": np.rad2deg(1.57092),
-    "h12": np.rad2deg(2.48831),
-    "q12": np.rad2deg(4.44748),
+    "h2": np.rad2deg(2.48831),
+    "q2": np.rad2deg(4.44748),
     "hin2": np.rad2deg(2.751),
     "qin2": np.rad2deg(1.2807),
     "hf1": np.rad2deg(4.1716),
@@ -55,8 +55,8 @@ U_5_angles = {
 U_6_angles = {
     "h1": np.rad2deg(1.57076),
     "q1": np.rad2deg(4.71234),
-    "h12": np.rad2deg(5.99134),
-    "q12": np.rad2deg(3.60292),
+    "h2": np.rad2deg(5.99134),
+    "q2": np.rad2deg(3.60292),
     "hin2": np.rad2deg(3.1633),
     "qin2": np.rad2deg(2.21049),
     "hf1": np.rad2deg(4.61802),
