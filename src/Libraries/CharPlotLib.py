@@ -1,231 +1,264 @@
 """
-Plotting functions for Setup characterisations (+ saving data)
+Plotting, normalisation, and unitary math for setup characterisations.
+
+Absorbed from CharModellingLib: normalise_*, getUnitary, UnitaryToProb.
 """
 
+import csv
 import datetime
-import os 
+import math
+import os
+
 import matplotlib.pyplot as plt
-import Libraries.CharModellingLib as cml
 import numpy as np
-import csv 
+
+import Libraries.OpticsLib as ol
+from Libraries.OpticsLib import PBS, PBS_dag
 from Libraries.BasisVectors import basis_vectors
 
-def createDir(directory_name):
-    # directory_name = directory_name + f'_{graph_title}'
-    try:
-        os.makedirs(directory_name, exist_ok=True)
-        assert os.path.exists(directory_name), print(f"Failed creating dir '{directory_name}'.")
-        print(f"Directory '{directory_name}' created successfully.")
-    except FileExistsError:
-        print(f"Directory '{directory_name}' already exists.")
-        return 1
-    except PermissionError:
-        print(f"Permission denied: Unable to create '{directory_name}'.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    return 1
+ROUND_TO = 8  # decimal places used in matrix rounding
 
-def savePlot(fig, graph_title, filepath=os.getcwd()):
-    # Save plot and data in a folder with todays date and time
-    if createDir(filepath):
-        filename = graph_title
-        fig.savefig(filepath +'/' + filename + '_FIGURE.png')
 
-def saveData(data, normalised_data, angles, graph_title, plot_type = None, filepath=os.getcwd()):
-    if createDir(filepath):
-        filename = graph_title
-        writeData2File(filepath +'/'+ filename + '_DATA', data=data, normalised_data=normalised_data, angles=angles, plot_type=plot_type)
+# ── Normalisation ─────────────────────────────────────────────────────────────
 
-def write2file(filename, data, normalised_data, angles): 
-    # Create a file with DATE, ANGS, RAW and NORM Data
-    with open(f"{filename}.csv", 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow({f'DATE: {datetime.datetime.now().strftime("%Y/%m/%d @ %H:%M:%S")}'})
-        writer.writerow({f'ANGLES: {angles}'})
-        writer.writerow({f'RAW_DATA: {data}'})
-        writer.writerow({f'NORM_DATA: {normalised_data}'})
+def normalise_pair(val1: float, val2: float) -> tuple[float, float]:
+    total = val1 + val2
+    if total == 0:
+        return 0.5, 0.5
+    return val1 / total, val2 / total
 
-def writeData2File(filename, data, normalised_data, angles, plot_type): 
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    # Create a file with DATE, ANGS, RAW and NORM Data
-    with open(f"{filename}.csv", 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        if plot_type is not None:
-            writer.writerow([f'PLOT TYPE: {plot_type}'])
-        writer.writerow([f'DATE: {datetime.datetime.now().strftime("%Y/%m/%d @ %H:%M:%S")}'])
-        writer.writerow([f'ANGLES: {angles}'])
 
-        if '0' in data.keys() or 0 in data.keys():
-            for key in data:
-                writer.writerow([f'RAW DATA [{key}]: {data[key]}'])
-        else: writer.writerow([f'RAW_DATA: {data}'])
+def normalise_err(meas1, meas2, norm1: float, norm2: float) -> tuple[float, float]:
+    err1 = (meas1[1] / meas1[0]) * norm1
+    err2 = (meas2[1] / meas2[0]) * norm2
+    return err1, err2
 
-        if '0' in normalised_data.keys() or 0 in normalised_data.keys():
-            for key in normalised_data:
-                writer.writerow([f'NORM_DATA[{key}]: {normalised_data[key]}'])
-        else: writer.writerow([f'NORM_DATA: {normalised_data}'])
 
-def plot_n_chars(searchMatrix, data, base_title, n, SAVE=False):
-    for i in range(n):
-        graph_title = f'FIG_{n}_' + base_title
-        plot_characterisation(searchMatrix, data, graph_title, showPlot=False)
+def normalise_measurements(measurements: dict) -> dict:
+    normalized = {}
+    for k1, k2 in [("H", "V"), ("A", "D"), ("R", "L")]:
+        normalized[k1] = [0, 0]
+        normalized[k2] = [0, 0]
+        normalized[k1][0], normalized[k2][0] = normalise_pair(measurements[k1][0], measurements[k2][0])
+        normalized[k1][1], normalized[k2][1] = normalise_err(
+            measurements[k1], measurements[k2], normalized[k1][0], normalized[k2][0]
+        )
+    return normalized
 
-def plot_characterisation(data, graph_title, angles, plot_type = None, 
-                          note = None, save_plot=True, save_data=True, show_plot=True):
-    fit = 0
-    multi=False
-    measurement_basis = basis_vectors
-    normalized_data = cml.normalise_full_tomo_data(data)
-    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q2=angles['q2'],
-                                    h2=angles['h2'], qf2=angles['qf2'], hf2=angles['hf2'],
-                                    qf1=angles.get('qf1', 0), hf1=angles.get('hf1', 0),
-                                    qin2=angles['qin2'], hin2=angles['hin2'],
-                                    m1=angles['m1'], m2=angles['m2'], m3=angles['m3'])
-    # Create a figure with 4 subplots (2 rows, 3 columns) with larger dimensions
-    if len(normalized_data.keys()) % 2 == 0:
-        fig, axes = plt.subplots(int(len(normalized_data.keys())/2), 2, figsize=(28, 20))
-        axes = axes.ravel()  
-        multi=True
+
+def normalise_full_tomo_data(res: dict) -> dict:
+    """
+    Normalise nested tomo result.
+    Input:  {input_state: {output_state: (power, err)}}
+    Output: {input_state: {output_state: [norm_val, norm_err]}}
+    """
+    normalized = {}
+    for input_state in res:
+        normalized[input_state] = {}
+        for k1, k2 in [("H", "V"), ("A", "D"), ("R", "L")]:
+            normalized[input_state][k1] = [0, 0]
+            normalized[input_state][k2] = [0, 0]
+            normalized[input_state][k1][0], normalized[input_state][k2][0] = normalise_pair(
+                res[input_state][k1][0], res[input_state][k2][0]
+            )
+            normalized[input_state][k1][1], normalized[input_state][k2][1] = normalise_err(
+                res[input_state][k1], res[input_state][k2],
+                normalized[input_state][k1][0], normalized[input_state][k2][0],
+            )
+    return normalized
+
+
+# ── Unitary math ──────────────────────────────────────────────────────────────
+
+def getUnitary(qf2=0, hf2=0, qf1=0, hf1=0, m3=0, m2=0, h2=0, q2=0,
+               m1=0, h1=0, q1=0, qin2=0, hin2=0) -> np.ndarray:
+    """Return 4×4 unitary matrix for the current waveplate angle configuration."""
+    QWPf2  = ol.QWP_p2(qf2);  HWPf2  = ol.HWP_p2(hf2)
+    QWPf1  = ol.QWP_p1(qf1);  HWPf1  = ol.HWP_p1(hf1)
+    HWP2   = ol.HWP_p2(h2);   QWP2   = ol.QWP_p2(q2)
+    HWP1   = ol.HWP_p1(h1);   QWP1   = ol.QWP_p1(q1)
+    QWPin2 = ol.QWP_p2(qin2); HWPin2 = ol.HWP_p2(hin2)
+    M3 = ol.Mirror4(m3, m1)
+    M2 = ol.Mirror4(m2, m2)
+    M1 = ol.Mirror4(m1, m3)
+    return HWPf2 @ QWPf2 @ HWPf1 @ QWPf1 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
+
+
+def UnitaryToProb(U: np.ndarray, measurementBasis: dict, input: np.ndarray) -> dict:
+    """Convert unitary to probability distribution over measurement basis pairs."""
+    epsilon = 1e-12  # prevents division by zero in degenerate cases
+    res = {}
+
+    def inner_prod_sq(bra, ket):
+        val = np.conjugate(np.transpose(bra)) @ ket
+        return float(np.squeeze(np.asarray(np.square(np.abs(val)))))
+
+    for k1, k2 in [("H", "V"), ("A", "D"), ("R", "L")]:
+        p1 = inner_prod_sq(measurementBasis[k1], U @ input)
+        p2 = inner_prod_sq(measurementBasis[k2], U @ input)
+        denom = p1 + p2 + epsilon
+        res[k1] = p1 / denom
+        res[k2] = p2 / denom
+
+    return res
+
+
+# ── Private plot helpers ──────────────────────────────────────────────────────
+
+def _unitary_from_angles(angles: dict) -> np.ndarray:
+    return getUnitary(
+        q1=angles['q1'],           h1=angles['h1'],
+        q2=angles['q2'],           h2=angles['h2'],
+        qf2=angles['qf2'],         hf2=angles['hf2'],
+        qf1=angles.get('qf1', 0),  hf1=angles.get('hf1', 0),
+        qin2=angles['qin2'],       hin2=angles['hin2'],
+        m1=angles['m1'],           m2=angles['m2'],  m3=angles['m3'],
+    )
+
+
+def _make_directory_name(plot_type: str | None = None, note: str | None = None) -> str:
+    if plot_type is not None:
+        name = datetime.datetime.now().strftime(
+            f"Figures/Figures_%Y-%m-%d/{plot_type}_Figures_%Y-%m-%d/%Y-%m-%d__%H-%M"
+        )
     else:
-        fig, axes = plt.subplots(int(len(normalized_data.keys())), 1, figsize=(28, 20))
+        name = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M")
+    if note is not None:
+        name = f'{note}_{name}'
+    return name
 
-    # Iterate over each basis in the recorded data via key "H" etc
-    for i, basis in enumerate(normalized_data.keys()):
-        targetProb = cml.UnitaryToProb(searchMatrix, measurement_basis, measurement_basis[basis])    
-        labels = list(measurement_basis.keys())
-        measured_values = [normalized_data[basis][k][0] for k in labels]
-        err = [normalized_data[basis][k][1] for k in labels]
-        theoretical_values = [targetProb[k] for k in labels]
-        x = np.arange(len(normalized_data[basis].keys()))  
 
-        if multi==True:
-            ax = axes[i]
-        else:
-            ax = axes
+def _subplot_grid(n: int):
+    """Return (fig, axes_list) for n subplots in a 2-column layout."""
+    if n == 1:
+        fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+        return fig, [ax]
+    cols = 2
+    rows = math.ceil(n / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(28, 10 * rows))
+    axes_flat = axes.ravel().tolist()
+    for spare in axes_flat[n:]:
+        spare.set_visible(False)
+    return fig, axes_flat[:n]
 
-        bar_width = 0.35  
-        
-        # ax.bar(x, measured_values, width=bar_width, color='gold', label='Measured')
-        bars = ax.bar(x, measured_values, width=bar_width, color='gold', label='Measured')
+
+def _render_basis_subplot(ax, basis: str, norm_slice: dict, theory: dict,
+                          raw_slice: dict | None = None) -> float:
+    """
+    Draw measured vs theoretical bars for one input basis onto ax.
+    norm_slice: normalized_data[basis]  — {state: [value, err]}
+    theory:     {state: float}
+    raw_slice:  data[basis]             — {state: (raw_val, raw_err)}, for mV labels
+    Returns L2 fit residual.
+    """
+    labels = list(basis_vectors.keys())
+    measured = [norm_slice[k][0] for k in labels]
+    err      = [norm_slice[k][1] for k in labels]
+    theory_vals = [theory[k] for k in labels]
+    x = np.arange(len(labels))
+    bar_width = 0.35
+
+    bars = ax.bar(x, measured, width=bar_width, color='gold', label='Measured')
+
+    if raw_slice is not None:
         for j, bar in enumerate(bars):
-            height = bar.get_height()
-            raw_val, raw_err = data[basis][labels[j]]  # unpack the tuple
-            count = float(raw_val * 1000)      # mV
-            count_err = float(raw_err * 1000)  # mV
-
+            raw_val, raw_err = raw_slice[labels[j]]
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
-                height + 0.05,
-                f"{count:.2f} ± {count_err:.2f} mV",
-                ha="center",
-                va="bottom",
-                fontsize=15
+                bar.get_height() + 0.05,
+                f"{raw_val * 1000:.2f} ± {raw_err * 1000:.2f} mV",
+                ha='center', va='bottom', fontsize=15,
             )
-       
-        ax.bar(x, theoretical_values, width=bar_width, color='none', edgecolor='black', linestyle=':', linewidth=2, label='Theoretical')
-       
-        ax.set_title(f'|{basis}⟩ Input', fontsize = 30)
-        ax.errorbar(labels, measured_values, yerr=err, fmt='s', color='k')
-        ax.set_xlabel('State', fontsize=30)
-        ax.set_ylabel('Probability', fontsize=30)
-        ax.set_ylim(0, 1)
-        ax.set_xticks(x + bar_width / 2)
-        ax.set_xticklabels(labels, fontsize=30)
-        ax.tick_params(axis='y')
-        ax.legend(fontsize=20)
 
-        fit += np.linalg.norm(np.array(measured_values) - np.array(theoretical_values))
-    title = graph_title + f" | Fit: {fit:.2f}"
-    # plt.suptitle(title, fontweight='bold', fontsize=28)
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.05, wspace=0.25, hspace=0.3)
+    ax.bar(x, theory_vals, width=bar_width, color='none', edgecolor='black',
+           linestyle=':', linewidth=2, label='Theoretical')
+    ax.errorbar(labels, measured, yerr=err, fmt='s', color='k')
+    ax.set_title(f'|{basis}⟩ Input', fontsize=30)
+    ax.set_xlabel('State', fontsize=30)
+    ax.set_ylabel('Probability', fontsize=30)
+    ax.set_ylim(0, 1)
+    ax.set_xticks(x + bar_width / 2)
+    ax.set_xticklabels(labels, fontsize=30)
+    ax.tick_params(axis='y')
+    ax.legend(fontsize=20)
 
-    if plot_type is not None:      
-        directory_name = datetime.datetime.now().strftime(f"Figures/Figures_%Y-%m-%d/{plot_type}_Figures_%Y-%m-%d/%Y-%m-%d__%H-%M")
-    else: directory_name = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M")
+    return float(np.linalg.norm(np.array(measured) - np.array(theory_vals)))
 
-    if note is not None:
-        directory_name = f'{note}_{directory_name}'
 
-    if save_plot==True:
+def _save_outputs(fig, data: dict, normalized_data: dict, angles: dict, graph_title: str,
+                  directory_name: str, plot_type: str | None,
+                  save_plot: bool, save_data: bool) -> None:
+    if save_plot:
         try:
             savePlot(fig, graph_title='', filepath=directory_name)
         except Exception as e:
-            print(f"Error saving plot: {e} \n\n Trying again...")
+            print(f"Error saving plot: {e}\n  Retrying...")
             try:
                 savePlot(fig, graph_title=graph_title, filepath=directory_name)
-            except Exception as e:
-                print(f"Failed saving plot: {e}")
-        print(f"Plot saved to directory: {directory_name}")
+            except Exception as e2:
+                print(f"Failed saving plot: {e2}")
+        print(f"Plot saved to: {directory_name}")
 
-    if save_data == True:
+    if save_data:
         try:
-            saveData(graph_title='', data=data, normalised_data=normalized_data, angles=angles, filepath=directory_name, plot_type=plot_type)
+            saveData(graph_title='', data=data, normalised_data=normalized_data,
+                     angles=angles, filepath=directory_name, plot_type=plot_type)
         except Exception as e:
-            print(f"Error saving data: {e} \n\n Trying again...")  
+            print(f"Error saving data: {e}\n  Retrying...")
             try:
-                saveData(graph_title=graph_title, data=data, normalised_data=normalized_data, angles=angles, filepath=directory_name, plot_type=plot_type)
-            except Exception as e:
-                print(f"Failed saving data: {e}")
-    print(f"Data saved to directory: {directory_name}")
-    
-    if show_plot ==True:
+                saveData(graph_title=graph_title, data=data, normalised_data=normalized_data,
+                         angles=angles, filepath=directory_name, plot_type=plot_type)
+            except Exception as e2:
+                print(f"Failed saving data: {e2}")
+        print(f"Data saved to: {directory_name}")
+
+
+# ── Public plotting API ───────────────────────────────────────────────────────
+
+def plot_characterisation(data: dict, graph_title: str, angles: dict,
+                          plot_type: str | None = None, note: str | None = None,
+                          save_plot: bool = True, save_data: bool = True,
+                          show_plot: bool = True) -> None:
+    """
+    Plot measured vs theoretical probabilities for all input bases in data.
+    Works for any number of bases — subplots scale in a 2-column layout.
+    data: {input_basis: {output_state: (raw_val, raw_err)}}
+    """
+    U = _unitary_from_angles(angles)
+    normalized_data = normalise_full_tomo_data(data)
+    bases = list(normalized_data.keys())
+
+    fig, axes = _subplot_grid(len(bases))
+
+    fit = 0.0
+    for ax, basis in zip(axes, bases):
+        theory = UnitaryToProb(U, basis_vectors, basis_vectors[basis])
+        fit += _render_basis_subplot(ax, basis, normalized_data[basis], theory,
+                                     raw_slice=data[basis])
+
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.05, wspace=0.25, hspace=0.3)
+
+    directory_name = _make_directory_name(plot_type, note)
+    _save_outputs(fig, data, normalized_data, angles, graph_title, directory_name,
+                  plot_type, save_plot, save_data)
+
+    print(f"Measured value solution fit: {fit:.4f}")
+    if show_plot:
         plt.show()
-   
-    print(f"Measured value solution fit: {fit}")
+    return fit
 
-def plot_single(data, graph_title, angles,  save_plot=True, save_data=True, show_plot=True):
 
-    input = data.keys()
-    measurement_basis = basis_vectors
-    # normalized_data = cml.normalise_full_tomo_data(data)
-    searchMatrix = cml.getUnitary(q1=angles['q1'], h1=angles['h1'], q2=angles['q2'],
-                                    h2=angles['h2'], qf2=angles['qf2'], hf2=angles['hf2'],
-                                    qf1=angles.get('qf1', 0), hf1=angles.get('hf1', 0),
-                                    qin2=angles['qin2'], hin2=angles['hin2'],
-                                    m1=angles['m1'], m2=angles['m2'], m3=angles['m3'])
-    
-    # normalized_data = cml.normalise_measurements(data)
-    normalized_data = cml.normalise_full_tomo_data(data)
-    fit = 0
-    fig, ax = plt.subplots(figsize=(14, 8))
+def plot_single(data: dict, graph_title: str, angles: dict,
+                save_plot: bool = True, save_data: bool = True,
+                show_plot: bool = True) -> None:
+    """Single-basis convenience wrapper. data: {basis: {output_state: (val, err)}}"""
+    plot_characterisation(data, graph_title, angles,
+                          save_plot=save_plot, save_data=save_data, show_plot=show_plot)
 
-    targetProb = cml.UnitaryToProb(searchMatrix, measurement_basis, measurement_basis[input])
-    labels = list(measurement_basis.keys())
-    measured_values = [normalized_data[k][0] for k in labels]
-    err = [normalized_data[k][1] for k in labels]
-    theoretical_values = [targetProb[k] for k in labels]
-    x = np.arange(len(labels))  
 
-    bar_width = 0.35  
-    ax.bar(x, measured_values, width=bar_width, color='gold', label='Measured')
-    ax.bar(x, theoretical_values, width=bar_width, color='none', edgecolor='black', linestyle=':', linewidth=3, label='Theoretical')
-    ax.errorbar(x, measured_values, yerr=err, fmt='s', color='k')
-    ax.set_xlabel('State', fontsize=20)
-    ax.set_ylabel('Probability', fontsize=20)
-    ax.set_xticks(x, labels, fontsize=15)
-    ax.set_ylim(0, 1)
-    ax.tick_params(axis='y')
-    ax.legend(fontsize=15)
-    fit += np.linalg.norm(np.array(measured_values) - np.array(theoretical_values))
-    plt.title(f"{graph_title} | Input: |{input}⟩ | Fit: {fit:.2f}", fontweight='bold', fontsize=25)
-    fig.tight_layout()
-
-    directory_name = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M")
-    if save_plot==True:
-        savePlot(fig, graph_title=graph_title, filepath=directory_name)
-    if save_data == True:
-        saveData(graph_title=graph_title, data=data, normalised_data=normalized_data, angles=angles, filepath=directory_name)
-    if show_plot ==True:
-        plt.show()
-
-    plt.show()
-
-def plot_mirror(normalized_data, categories):
-    # Create a figure with 3 subplots for each set of measurements (M1, M2, M3)
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))  # 1 row, 3 columns
+def plot_mirror(normalized_data: dict, categories: list) -> None:
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     axes = axes.ravel()
-
-    # Iterate over normalized data sets (M1, M2, M3) and plot the respective normalized values
     for i, (key, measurements) in enumerate(normalized_data.items()):
         normalized_values = [measurements[cat] for cat in categories]
         axes[i].bar(np.arange(len(categories)), normalized_values, color='gold', label=key)
@@ -236,7 +269,54 @@ def plot_mirror(normalized_data, categories):
         axes[i].set_xticks(np.arange(len(categories)))
         axes[i].set_xticklabels(categories)
         axes[i].legend()
-
     plt.tight_layout()
     plt.show()
 
+
+# ── File I/O ──────────────────────────────────────────────────────────────────
+
+def createDir(directory_name: str) -> int:
+    try:
+        os.makedirs(directory_name, exist_ok=True)
+        print(f"Directory '{directory_name}' created successfully.")
+    except PermissionError:
+        print(f"Permission denied: Unable to create '{directory_name}'.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    return 1
+
+
+def savePlot(fig, graph_title: str, filepath: str = os.getcwd()) -> None:
+    if createDir(filepath):
+        fig.savefig(filepath + '/' + graph_title + '_FIGURE.png')
+
+
+def saveData(data: dict, normalised_data: dict, angles: dict, graph_title: str,
+             plot_type: str | None = None, filepath: str = os.getcwd()) -> None:
+    if createDir(filepath):
+        writeData2File(filepath + '/' + graph_title + '_DATA',
+                       data=data, normalised_data=normalised_data,
+                       angles=angles, plot_type=plot_type)
+
+
+def writeData2File(filename: str, data: dict, normalised_data: dict,
+                   angles: dict, plot_type: str | None) -> None:
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(f"{filename}.csv", 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        if plot_type is not None:
+            writer.writerow([f'PLOT TYPE: {plot_type}'])
+        writer.writerow([f'DATE: {datetime.datetime.now().strftime("%Y/%m/%d @ %H:%M:%S")}'])
+        writer.writerow([f'ANGLES: {angles}'])
+
+        if '0' in data.keys() or 0 in data.keys():
+            for key in data:
+                writer.writerow([f'RAW DATA [{key}]: {data[key]}'])
+        else:
+            writer.writerow([f'RAW_DATA: {data}'])
+
+        if '0' in normalised_data.keys() or 0 in normalised_data.keys():
+            for key in normalised_data:
+                writer.writerow([f'NORM_DATA[{key}]: {normalised_data[key]}'])
+        else:
+            writer.writerow([f'NORM_DATA: {normalised_data}'])

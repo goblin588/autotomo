@@ -1,12 +1,19 @@
 
 """
 Waveplate hardware settings
-
 """
 
 import os
 from pathlib import Path
-from Libraries.Waveplate import Waveplate
+
+
+class Waveplate:
+    def __init__(self, id, oa=0):
+        self.ID = id
+        self.OA = oa
+
+    def setOA(self, oa):
+        self.OA = oa
 
 SIM_MODE = os.environ.get('AUTOTOMO_SIM', '0') == '1'
 
