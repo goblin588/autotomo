@@ -34,4 +34,4 @@ python src/tomo_auto.py --sim
 
 ## Notifications
 
-Push notifications via [ntfy.sh](https://ntfy.sh) are sent on tomo completion. Subscribe to the lab topic in the ntfy app to receive them.
+Push notifications via [ntfy.sh](https://ntfy.sh) are sent on tomo completion. Subscribe to "goblin-lab-r9k2mq" in the ntfy app to receive them.
