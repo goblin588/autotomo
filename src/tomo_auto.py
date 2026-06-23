@@ -89,7 +89,7 @@ def full_tomo(angles):
 def full6_tomo(angles):
     print("Performing tomography for all 6 input states (H, V, A, D, R, L)")
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
+        res = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
     _beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full6', show_plot=False)
     notify(f"HVADRL tomo done — fit: {fit:.4f} — {angles['title']}", title="Full 6 tomo complete", priority="high")
@@ -111,7 +111,7 @@ def multi_run(angles):
         try:
             for i in range(n):
                 print(f"Performing measurement {i + 1}/{n}...")
-                res_out[i] = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
+                res_out[i] = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
                 notify(f"Run {i + 1}/{n} done — {angles['title']}", title="Multi-run progress")
         except Exception as e:
             print(f"Measurement failed: {e}")
