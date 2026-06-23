@@ -17,3 +17,6 @@ src/Figures/
 # IDE
 .vscode/
 .idea/
+
+# Dev notes (local only)
+CLAUDE.md
