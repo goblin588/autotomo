@@ -10,8 +10,6 @@ import numpy as np
 def clean_np_float(text: str) -> str:
     return re.sub(r'np\.float64\(([^)]+)\)', r'\1', text)
 
-import ast
-
 def load_csv_data(path):
     data = {
         "plot_type": None,

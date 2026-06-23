@@ -16,7 +16,6 @@ def angle_menu():
               'm3': 3.74,
               'm2': 3.77,
               'm1': 3.16,
-              'm0': 3.14,
               'title': ''}  
     u = input("What N unitary are you using?")
     if u in unitaries_angles.keys():

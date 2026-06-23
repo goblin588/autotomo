@@ -64,8 +64,5 @@ class MockPowerMeter:
         samples = self._baseline + np.random.normal(0, self._baseline * 0.01, n)
         return float(np.mean(samples)), float(np.std(samples, ddof=1))
 
-    def get_power(self):
-        return self._baseline + np.random.normal(0, self._baseline * 0.01)
-
     def close(self):
         pass

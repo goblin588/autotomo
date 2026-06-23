@@ -27,12 +27,6 @@ def QWP(theta):
     return (1/np.sqrt(2))*np.array([[np.round(1-(1j*np.cos(2*theta)),ROUND_TO),np.round(-1j*np.sin(2*theta),ROUND_TO)],
                                     [np.round(-1j*np.sin(2*theta),ROUND_TO),np.round(1+1j*np.cos(2*theta),ROUND_TO)]])
 
-def Mirror2(phi):
-    # ASSUMING PHI RELATIVE PHASE SHIFT IN RADIANS
-    m = np.array([[1,0],
-        [0,np.exp(1j*phi)]])
-    return m 
-
 ## 4X4 Components##
 
 def Mirror4(phi, phi2):

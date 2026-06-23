@@ -46,14 +46,6 @@ class PM100USB:
         time.sleep(0.1)  # Wait for a second before closing.
         self.close()
     
-    def get_power(self):
-        """
-        Take a power measurement.
-        """
-        power = c_double()
-        self.tlPM.measPower(byref(power), TLPM_DEFAULT_CHANNEL)
-        return power.value
-    
     def read(self, n = 30):
         """
         Returns avg of n power measurements. and std

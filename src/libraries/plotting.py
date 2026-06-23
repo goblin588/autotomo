@@ -248,14 +248,6 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
     return fit
 
 
-def plot_single(data: dict, graph_title: str, angles: dict,
-                save_plot: bool = True, save_data: bool = True,
-                show_plot: bool = True) -> None:
-    """Single-basis convenience wrapper. data: {basis: {output_state: (val, err)}}"""
-    plot_characterisation(data, graph_title, angles,
-                          save_plot=save_plot, save_data=save_data, show_plot=show_plot)
-
-
 def plot_mirror(normalized_data: dict, categories: list) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     axes = axes.ravel()
