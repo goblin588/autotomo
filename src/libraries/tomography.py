@@ -2,14 +2,14 @@
 Functions associated with Tomography control / movement of stages.
 """
 
-from Libraries.BasisVectors import basis_angles
-from Libraries.Settings import SIM_MODE
+from libraries.basis_vectors import basis_angles
+from libraries.settings import SIM_MODE
 import time
 
 if SIM_MODE:
-    from Interfaces.mock import MockSMC100Connection as _Connection, MockSMC100Stage as _Stage
+    from interfaces.mock import MockSMC100Connection as _Connection, MockSMC100Stage as _Stage
 else:
-    import Interfaces.SMC100 as _smc
+    import interfaces.smc100 as _smc
     _Connection = _smc.SMC100Connection
     _Stage = _smc.SMC100Stage
 

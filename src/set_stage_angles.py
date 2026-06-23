@@ -1,50 +1,52 @@
 """
-Manually set input or output waveplate stages to a specific basis or angle.
+Manually set waveplate stage pairs to a named basis or specific angles.
 """
-from Libraries.BasisVectors import basis_angles
-import Libraries.TomoLibrary as tl
-from Libraries.Settings import HWP_IN, QWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT
+import libraries.tomography as tl
+from libraries.basis_vectors import basis_angles
+from libraries.settings import HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM, QWP_TOM, COMPORT
+
+_PAIRS = {
+    'in':  (HWP_IN,   QWP_IN,   "Input     (HWP_IN  / QWP_IN)"),
+    'in2': (HWP_IN_2, QWP_IN_2, "Input 2   (HWP_IN_2 / QWP_IN_2)"),
+    'tom': (HWP_TOM,  QWP_TOM,  "Tomo      (HWP_TOM / QWP_TOM)"),
+}
 
 
 def _beep():
     print('\a', end='', flush=True)
 
 
-def main():
-    print("Input State (H/V/A/D/R/L or press enter to skip): ", end="")
-    user_input = input().upper()
-    if user_input in basis_angles:
-        print(f"Setting input basis |{user_input}>")
-        tl.move_stage(HWP_IN, basis_angles[user_input][0], COMPORT)
-        tl.move_stage(QWP_IN, basis_angles[user_input][1], COMPORT)
-
-    print("Measure State (H/V/A/D/R/L) or type 'set' to enter angles manually: ", end="")
-    user_input = input().upper()
-
-    if user_input == 'SET':
-        which = input("Set input (i) or output (o) stages? ").lower().strip()
-        if which == 'i':
-            qwp_angle = float(input("QWP_IN angle: "))
-            tl.move_stage(QWP_IN_2, qwp_angle, COMPORT)
-            hwp_angle = float(input("HWP_IN angle: "))
-            tl.move_stage(HWP_IN_2, hwp_angle, COMPORT)
-        elif which == 'o':
-            qwp_angle = float(input("QWP_TOM angle: "))
-            tl.move_stage(QWP_TOM, qwp_angle, COMPORT)
-            hwp_angle = float(input("HWP_TOM angle: "))
-            tl.move_stage(HWP_TOM, hwp_angle, COMPORT)
-        else:
-            print("Invalid selection.")
-
-    elif user_input in basis_angles:
-        print(f"Setting measurement basis |{user_input}>")
-        tl.move_stage(HWP_TOM, basis_angles[user_input][0], COMPORT)
-        tl.move_stage(QWP_TOM, basis_angles[user_input][1], COMPORT)
-        print("READY")
-        _beep()
-
+def _set_pair(hwp, qwp, label):
+    val = input(f"  {label}\n  Basis (H/V/A/D/R/L) or 'manual': ").strip().upper()
+    if val in basis_angles:
+        tl.move_stage(hwp, basis_angles[val][0], COMPORT)
+        tl.move_stage(qwp, basis_angles[val][1], COMPORT)
+        print(f"  Set to |{val}⟩  (HWP={basis_angles[val][0]:.2f}°, QWP={basis_angles[val][1]:.2f}°)")
+    elif val == 'MANUAL':
+        hwp_angle = float(input("    HWP angle (deg): "))
+        qwp_angle = float(input("    QWP angle (deg): "))
+        tl.move_stage(hwp, hwp_angle, COMPORT)
+        tl.move_stage(qwp, qwp_angle, COMPORT)
+        print(f"  Set to HWP={hwp_angle:.2f}°, QWP={qwp_angle:.2f}°")
     else:
-        print("Invalid input.")
+        print(f"  Unrecognised — skipping.")
+
+
+def main():
+    print("Stage pairs:  in  |  in2  |  tom  |  all")
+    while True:
+        choice = input("Which pair? (or Enter to finish): ").strip().lower()
+        if choice in ('', 'done'):
+            break
+        elif choice == 'all':
+            for hwp, qwp, label in _PAIRS.values():
+                _set_pair(hwp, qwp, label)
+        elif choice in _PAIRS:
+            hwp, qwp, label = _PAIRS[choice]
+            _set_pair(hwp, qwp, label)
+        else:
+            print("  Options: in, in2, tom, all")
+    _beep()
 
 
 if __name__ == "__main__":

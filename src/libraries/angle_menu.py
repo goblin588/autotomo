@@ -1,5 +1,5 @@
 import numpy as np
-from Libraries.WaveplateAngles import unitaries_angles
+from libraries.waveplate_angles import unitaries_angles
 
 def angle_menu(): 
     # ADD HF1 and QF1, and include N number 3-6

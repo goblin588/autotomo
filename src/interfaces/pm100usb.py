@@ -1,8 +1,8 @@
 from ctypes import c_uint32,byref,create_string_buffer,c_bool,c_char_p,c_int,c_double
-from Interfaces.TLPMX import TLPMX
+from interfaces.tlpmx import TLPMX
 import time
 import numpy as np 
-from Interfaces.TLPMX import TLPM_DEFAULT_CHANNEL
+from interfaces.tlpmx import TLPM_DEFAULT_CHANNEL
 
 class PM100USB:
     def __init__(self, wavelength=780, verbose=False):

@@ -12,9 +12,9 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-import Libraries.OpticsLib as ol
-from Libraries.OpticsLib import PBS, PBS_dag
-from Libraries.BasisVectors import basis_vectors
+import libraries.optics as ol
+from libraries.optics import PBS, PBS_dag
+from libraries.basis_vectors import basis_vectors
 
 ROUND_TO = 8  # decimal places used in matrix rounding
 

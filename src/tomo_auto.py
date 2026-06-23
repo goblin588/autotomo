@@ -8,7 +8,6 @@ Requires:
 Run with AUTOTOMO_SIM=1 to use mock hardware (no physical connection needed):
     AUTOTOMO_SIM=1 python tomo_auto.py
 """
-import argparse
 import datetime
 import os
 import sys
@@ -16,12 +15,13 @@ import sys
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
-import Libraries.CharPlotLib as cpl
-import Libraries.TomoLibrary as tl
-from Libraries.AngMenu import angle_menu
-from Libraries.BasisVectors import basis_angles
-from Libraries.Settings import HWP_IN, QWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT, SIM_MODE
-from Libraries.notifier import notify
+import libraries.data_processing as dpl
+import libraries.plotting as cpl
+import libraries.tomography as tl
+from libraries.angle_menu import angle_menu
+from libraries.basis_vectors import basis_angles
+from libraries.settings import HWP_IN, QWP_IN, QWP_TOM, HWP_TOM, HWP_IN_2, QWP_IN_2, COMPORT, SIM_MODE
+from libraries.notifier import notify
 
 
 def _beep():
@@ -30,15 +30,15 @@ def _beep():
 
 def _get_powermeter(wavelength=1550, verbose=True):
     if SIM_MODE:
-        from Interfaces.mock import MockPowerMeter
+        from interfaces.mock import MockPowerMeter
         return MockPowerMeter(wavelength=wavelength, verbose=verbose)
-    import Interfaces.PM100USB as pml
+    import interfaces.pm100usb as pml
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 
 def set_stages(basis_in, basis_out):
-    tl.move_stage(HWP_IN, basis_angles[basis_in.upper()][0], COMPORT)
-    tl.move_stage(QWP_IN, basis_angles[basis_in.upper()][1], COMPORT)
+    tl.move_stage(HWP_IN,   basis_angles[basis_in.upper()][0],  COMPORT)
+    tl.move_stage(QWP_IN,   basis_angles[basis_in.upper()][1],  COMPORT)
     tl.move_stage(HWP_IN_2, basis_angles[basis_out.upper()][0], COMPORT)
     tl.move_stage(QWP_IN_2, basis_angles[basis_out.upper()][1], COMPORT)
 
@@ -110,9 +110,9 @@ def multi_run(angles):
     with _get_powermeter() as pm:
         try:
             for i in range(n):
-                print(f"Performing measurement {i}...")
+                print(f"Performing measurement {i + 1}/{n}...")
                 res_out[i] = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
-                notify(f"Run {i+1}/{n} done — {angles['title']}", title="Multi-run progress")
+                notify(f"Run {i + 1}/{n} done — {angles['title']}", title="Multi-run progress")
         except Exception as e:
             print(f"Measurement failed: {e}")
             notify(f"Measurement failed at run {len(res_out)}/{n}: {e}", title="autotomo error", priority="urgent")
@@ -125,27 +125,22 @@ def multi_run(angles):
                                   plot_type=f'{i}_Multi', save_data=False, save_plot=False, show_plot=False)
 
     norm_data = {i: cpl.normalise_full_tomo_data(res_out[i]) for i in res_out}
-
     filepath = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M/")
     filepath += f"{angles['title']}_ITERATIONS"
     cpl.writeData2File(filename=filepath, data=res_out, normalised_data=norm_data, angles=angles, plot_type='Multi')
 
 
-def prepare_s0_state(N):
-    key = f's0_{N}'
-    if key not in basis_angles:
-        print(f"No s0 state defined for N={N}. Available: {[k for k in basis_angles if k.startswith('s0')]}")
-        return
-    tl.move_stage(HWP_IN, basis_angles[key][0], COMPORT)
-    tl.move_stage(QWP_IN, basis_angles[key][1], COMPORT)
-    print(f"Input stages set to s0 state for N={N}")
+def replot(angles):
+    filepath = input("Path to data CSV: ").strip()
+    try:
+        data = dpl.load_csv_data(filepath)
+        avg_data = dpl.average_measurements(data['raw_data'])
+        cpl.plot_characterisation(avg_data, f"Replot — {angles['title']}", angles=angles)
+    except Exception as e:
+        print(f"Error loading data: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Automated Tomography Characterisation')
-    parser.add_argument('--sim', action='store_true', help='Run in simulation mode (no hardware required)')
-    args = parser.parse_args()
-
     if SIM_MODE:
         print("[SIM MODE] Running without hardware")
 
@@ -154,47 +149,41 @@ def main():
 
     run = True
     while run:
-        basis = input(
-            "Input state for tomography?\n"
-            "  H/V/A/D/R/L  — single basis\n"
+        choice = input(
+            "Mode?\n"
+            "  H/V/A/D/R/L  — single basis tomo\n"
             "  HV            — H + V only\n"
             "  F             — HVAD (4 input states)\n"
             "  6             — HVADRL (all 6 input states)\n"
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
-            "  S             — set s0 state\n"
+            "  R             — replot saved data\n"
             "> "
         ).upper()
 
-        if basis in ['H', 'V', 'A', 'D', 'R', 'L']:
-            single_tomo(basis, angles)
+        if choice in ['H', 'V', 'A', 'D', 'R', 'L']:
+            single_tomo(choice, angles)
             run = False
-
-        elif basis == 'HV':
+        elif choice == 'HV':
             hv_tomo(angles)
             run = False
-
-        elif basis == 'F':
+        elif choice == 'F':
             full_tomo(angles)
             run = False
-
-        elif basis == '6':
+        elif choice == '6':
             full6_tomo(angles)
             run = False
-
-        elif basis == 'M':
+        elif choice == 'M':
             multi_run(angles)
             run = False
-
-        elif basis == 'T':
+        elif choice == 'T':
             polarisation_tuner()
             run = False
-
-        elif basis == 'S':
-            prepare_s0_state(int(angles['N']))
-
+        elif choice == 'R':
+            replot(angles)
+            run = False
         else:
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, M, T, S")
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, M, T, R")
 
 
 if __name__ == "__main__":

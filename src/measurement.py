@@ -4,9 +4,9 @@ Sets the input waveplates to the s0 state for a given unitary N.
 Run with AUTOTOMO_SIM=1 to use mock hardware:
     AUTOTOMO_SIM=1 python measurement.py
 """
-import Libraries.TomoLibrary as tl
-from Libraries.BasisVectors import basis_angles
-from Libraries.Settings import HWP_IN, QWP_IN, COMPORT, SIM_MODE
+import libraries.tomography as tl
+from libraries.basis_vectors import basis_angles
+from libraries.settings import HWP_IN, QWP_IN, COMPORT, SIM_MODE
 
 VALID_N = [k.split('_')[1] for k in basis_angles if k.startswith('s0_')]
 
