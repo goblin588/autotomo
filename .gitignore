@@ -13,6 +13,7 @@ data/
 /Archive
 /Misc
 src/Figures/
+src/figures/
 
 # IDE
 .vscode/
