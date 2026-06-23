@@ -14,6 +14,8 @@ data/
 /Misc
 src/Figures/
 src/figures/
+/Figures/
+/figures/
 
 # IDE
 .vscode/
