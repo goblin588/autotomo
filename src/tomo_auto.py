@@ -42,6 +42,12 @@ def set_stages(basis_in, basis_out):
     tl.move_stage(HWP_IN_2, basis_angles[basis_out.upper()][0], COMPORT)
     tl.move_stage(QWP_IN_2, basis_angles[basis_out.upper()][1], COMPORT)
 
+    #for reverse loop polarisation setting
+    # tl.move_stage(HWP_IN_2, -basis_angles[basis_in.upper()][0], COMPORT)
+    # tl.move_stage(QWP_IN_2, -basis_angles[basis_in.upper()][1], COMPORT)
+    # tl.move_stage(HWP_TOM, basis_angles[basis_out.upper()][0], COMPORT)
+    # tl.move_stage(QWP_TOM, basis_angles[basis_out.upper()][1], COMPORT)
+
 
 def polarisation_tuner():
     this_basis = 'H'

@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FIG_DIR = PROJECT_ROOT / "data" / "Figures"
 
 qwp_in_oa = 3
-hwp_in_oa = 54.57+45
+hwp_in_oa = 54.57
 qwp_tom_oa = 107.58
 hwp_tom_oa = 41.50
 qwp_in_2_oa = 131.32

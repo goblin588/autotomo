@@ -1,3 +1,5 @@
+#%%
+
 import numpy as np
 
 # 4x1 Vectors
@@ -40,7 +42,7 @@ basis_vectors_2 = {
 # Angles [HWP, QWP] 
 basis_angles = {
     "H": [0,0],
-    "V": [45,90],
+    "V": [45,0],
     "A": [-22.5,45],
     "D": [22.5,45],
     "R": [22.5,0],
