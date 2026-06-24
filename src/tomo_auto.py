@@ -66,45 +66,45 @@ def polarisation_tuner():
         _beep()
 
 
-def single_tomo(basis, angles):
+def single_tomo(basis, angles, path: int = 2):
     print(f"Performing tomography for single input basis |{basis}>")
     tl.move_stage(HWP_IN, basis_angles[basis][0], COMPORT)
     tl.move_stage(QWP_IN, basis_angles[basis][1], COMPORT)
     with _get_powermeter() as pm:
         res = {basis: tl.single_tomography(qwp=QWP_TOM, hwp=HWP_TOM, powermeter=pm, smc_port=COMPORT)}
     _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], plot_type='Single', angles=angles, show_plot=True)
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], plot_type='Single', angles=angles, show_plot=True, path=path)
     notify(f"|{basis}⟩ tomo done — fit: {fit:.4f} — {angles['title']}", title="Single tomo complete")
 
 
-def full_tomo(angles):
+def full_tomo(angles, path: int = 2):
     print("Performing tomography for H, V, A, D input states")
     with _get_powermeter() as pm:
         res = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
     _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full', show_plot=False)
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full', show_plot=False, path=path)
     notify(f"HVAD tomo done — fit: {fit:.4f} — {angles['title']}", title="Full tomo complete", priority="high")
 
 
-def full6_tomo(angles):
+def full6_tomo(angles, path: int = 2):
     print("Performing tomography for all 6 input states (H, V, A, D, R, L)")
     with _get_powermeter() as pm:
         res = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
     _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full6', show_plot=False)
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full6', show_plot=False, path=path)
     notify(f"HVADRL tomo done — fit: {fit:.4f} — {angles['title']}", title="Full 6 tomo complete", priority="high")
 
 
-def hv_tomo(angles):
+def hv_tomo(angles, path: int = 2):
     print("Performing tomography for H and V input states")
     with _get_powermeter() as pm:
         res = tl.input_tomography(QWP_TOM, HWP_TOM, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HV_BASES)
     _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='HV', show_plot=True)
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='HV', show_plot=True, path=path)
     notify(f"HV tomo done — fit: {fit:.4f} — {angles['title']}", title="HV tomo complete")
 
 
-def multi_run(angles):
+def multi_run(angles, path: int = 2):
     n = int(input("Collect how many measurements?: "))
     res_out = {}
     with _get_powermeter() as pm:
@@ -122,7 +122,7 @@ def multi_run(angles):
 
     for i in res_out:
         cpl.plot_characterisation(res_out[i], graph_title=angles['title'], angles=angles,
-                                  plot_type=f'{i}_Multi', save_data=False, save_plot=False, show_plot=False)
+                                  plot_type=f'{i}_Multi', save_data=False, save_plot=False, show_plot=False, path=path)
 
     norm_data = {i: cpl.normalise_full_tomo_data(res_out[i]) for i in res_out}
     filepath = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M/")
@@ -130,12 +130,12 @@ def multi_run(angles):
     cpl.writeData2File(filename=filepath, data=res_out, normalised_data=norm_data, angles=angles, plot_type='Multi')
 
 
-def replot(angles):
+def replot(angles, path: int = 2):
     filepath = input("Path to data CSV: ").strip()
     try:
         data = dpl.load_csv_data(filepath)
         avg_data = dpl.average_measurements(data['raw_data'])
-        cpl.plot_characterisation(avg_data, f"Replot — {angles['title']}", angles=angles)
+        cpl.plot_characterisation(avg_data, f"Replot — {angles['title']}", angles=angles, path=path)
     except Exception as e:
         print(f"Error loading data: {e}")
 
@@ -146,6 +146,9 @@ def main():
 
     print("Automated Tomography Characterisation")
     angles = angle_menu()
+
+    _p = input("Output path [1/2, default 2]: ").strip()
+    path = 1 if _p == '1' else 2
 
     run = True
     while run:
@@ -162,25 +165,25 @@ def main():
         ).upper()
 
         if choice in ['H', 'V', 'A', 'D', 'R', 'L']:
-            single_tomo(choice, angles)
+            single_tomo(choice, angles, path)
             run = False
         elif choice == 'HV':
-            hv_tomo(angles)
+            hv_tomo(angles, path)
             run = False
         elif choice == 'F':
-            full_tomo(angles)
+            full_tomo(angles, path)
             run = False
         elif choice == '6':
-            full6_tomo(angles)
+            full6_tomo(angles, path)
             run = False
         elif choice == 'M':
-            multi_run(angles)
+            multi_run(angles, path)
             run = False
         elif choice == 'T':
             polarisation_tuner()
             run = False
         elif choice == 'R':
-            replot(angles)
+            replot(angles, path)
             run = False
         else:
             print("Valid inputs: H, V, A, D, R, L, HV, F, 6, M, T, R")

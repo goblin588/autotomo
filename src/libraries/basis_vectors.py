@@ -1,13 +1,13 @@
 import numpy as np
 
-# 4x1 Vectors
+# 4x1 Vectors — setup ordering: (H_p1, V_p1, H_p2, V_p2)
 
 H = np.transpose(np.matrix([0,0,1,0]))
 V = np.transpose(np.matrix([0, 0, 0, 1]))
 A = (1/np.sqrt(2))*(H-V)
 D = (1/np.sqrt(2))*(H+V)
 R = (1/np.sqrt(2))*(H-(1j*V))
-L = (1/np.sqrt(2))*(H+(1j*V)) 
+L = (1/np.sqrt(2))*(H+(1j*V))
 
 basis_vectors = {
     "H": H,
@@ -16,6 +16,22 @@ basis_vectors = {
     "D": D,
     "R": R,
     "L": L
+}
+
+H_p1 = np.transpose(np.matrix([1,0,0,0]))
+V_p1 = np.transpose(np.matrix([0,1,0,0]))
+A_p1 = (1/np.sqrt(2))*(H_p1-V_p1)
+D_p1 = (1/np.sqrt(2))*(H_p1+V_p1)
+R_p1 = (1/np.sqrt(2))*(H_p1-(1j*V_p1))
+L_p1 = (1/np.sqrt(2))*(H_p1+(1j*V_p1))
+
+basis_vectors_p1 = {
+    "H": H_p1,
+    "V": V_p1,
+    "A": A_p1,
+    "D": D_p1,
+    "R": R_p1,
+    "L": L_p1
 }
 
 # 2x1 Vectors 

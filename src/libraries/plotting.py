@@ -14,7 +14,7 @@ import numpy as np
 
 import libraries.optics as ol
 from libraries.optics import PBS, PBS_dag
-from libraries.basis_vectors import basis_vectors
+from libraries.basis_vectors import basis_vectors, basis_vectors_p1
 
 ROUND_TO = 8  # decimal places used in matrix rounding
 
@@ -84,18 +84,23 @@ def getUnitary(qf2=0, hf2=0, qf1=0, hf1=0, m3=0, m2=0, h2=0, q2=0,
     return HWPf2 @ QWPf2 @ HWPf1 @ QWPf1 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
 
 
-def UnitaryToProb(U: np.ndarray, measurementBasis: dict, input: np.ndarray) -> dict:
-    """Convert unitary to probability distribution over measurement basis pairs."""
-    epsilon = 1e-12  # prevents division by zero in degenerate cases
+def UnitaryToProb(U: np.ndarray, input: np.ndarray, path: int = 2) -> dict:
+    """Convert unitary to probability distribution over measurement basis pairs.
+
+    path: which output path to project onto (1 or 2, default 2).
+    """
+    epsilon = 1e-12
+    mb = basis_vectors if path == 2 else basis_vectors_p1
     res = {}
+    output = U @ input
 
     def inner_prod_sq(bra, ket):
         val = np.conjugate(np.transpose(bra)) @ ket
         return float(np.squeeze(np.asarray(np.square(np.abs(val)))))
 
     for k1, k2 in [("H", "V"), ("A", "D"), ("R", "L")]:
-        p1 = inner_prod_sq(measurementBasis[k1], U @ input)
-        p2 = inner_prod_sq(measurementBasis[k2], U @ input)
+        p1 = inner_prod_sq(mb[k1], output)
+        p2 = inner_prod_sq(mb[k2], output)
         denom = p1 + p2 + epsilon
         res[k1] = p1 / denom
         res[k2] = p2 / denom
@@ -218,7 +223,7 @@ def _save_outputs(fig, data: dict, normalized_data: dict, angles: dict, graph_ti
 def plot_characterisation(data: dict, graph_title: str, angles: dict,
                           plot_type: str | None = None, note: str | None = None,
                           save_plot: bool = True, save_data: bool = True,
-                          show_plot: bool = True) -> None:
+                          show_plot: bool = True, path: int = 2) -> None:
     """
     Plot measured vs theoretical probabilities for all input bases in data.
     Works for any number of bases — subplots scale in a 2-column layout.
@@ -232,7 +237,7 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
 
     fit = 0.0
     for ax, basis in zip(axes, bases):
-        theory = UnitaryToProb(U, basis_vectors, basis_vectors[basis])
+        theory = UnitaryToProb(U, basis_vectors[basis], path=path)
         fit += _render_basis_subplot(ax, basis, normalized_data[basis], theory,
                                      raw_slice=data[basis])
 
