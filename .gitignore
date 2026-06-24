@@ -10,11 +10,9 @@ build/
 data/
 
 # Archives and misc
-/Archive
-/Misc
-src/Figures/
+/archive
+/misc
 src/figures/
-/Figures/
 /figures/
 
 # IDE
