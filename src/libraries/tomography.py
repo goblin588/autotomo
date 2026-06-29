@@ -52,5 +52,7 @@ def move_stage(this_stage, angle: float, smc_port: str) -> None:
     with _Connection(port=smc_port) as stages:
         stage = _Stage(stages, smcID=this_stage.ID)
         stage.enable()
-        stage.move_absolute(angle + this_stage.OA)
-        stage.disable()
+        try:
+            stage.move_absolute(angle + this_stage.OA)
+        finally:
+            stage.disable()

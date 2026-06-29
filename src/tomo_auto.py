@@ -33,12 +33,16 @@ def _beep():
 def _set_fixed_waveplates(angles):
     """Move any fixed-position waveplates that have non-zero angles set."""
     if angles.get('hin2'):
+        print(f"Setting HWP_IN_2 to {angles['hin2']}°")
         tl.move_stage(HWP_IN_2, angles['hin2'], COMPORT)
     if angles.get('qin2'):
+        print(f"Setting QWP_IN_2 to {angles['qin2']}°")
         tl.move_stage(QWP_IN_2, angles['qin2'], COMPORT)
     if angles.get('hf2'):
+        print(f"Setting HWP_OUT_2 to {angles['hf2']}°")
         tl.move_stage(HWP_OUT_2, angles['hf2'], COMPORT)
     if angles.get('qf2'):
+        print(f"Setting QWP_OUT_2 to {angles['qf2']}°")
         tl.move_stage(QWP_OUT_2, angles['qf2'], COMPORT)
 
 
@@ -235,4 +239,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted — stages disabled.")
