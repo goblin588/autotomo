@@ -21,8 +21,7 @@ import libraries.tomography as tl
 from libraries.angle_menu import angle_menu
 from libraries.basis_vectors import basis_angles
 from libraries.settings import (HWP_IN, QWP_IN, QWP_TOM_DUMP, HWP_TOM_DUMP,
-                                HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
-                                HWP_TOM_1, QWP_TOM_1, COMPORT, SIM_MODE)
+                                HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
 from libraries.notifier import notify
 
 
@@ -58,17 +57,17 @@ def set_stages(basis_in, basis_out):
 
 
 def set_stages_loop(basis_in, basis_out):
-    tl.move_stage(HWP_TOM_1, -basis_angles[basis_in.upper()][0], COMPORT)
-    tl.move_stage(QWP_TOM_1, -basis_angles[basis_in.upper()][1], COMPORT)
-    tl.move_stage(HWP_OUT_2, basis_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_OUT_2, basis_angles[basis_out.upper()][1], COMPORT)
+    tl.move_stage(HWP_IN_2,  -basis_angles[basis_in.upper()][0],  COMPORT)
+    tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
+    tl.move_stage(HWP_OUT_2,  basis_angles[basis_out.upper()][0], COMPORT)
+    tl.move_stage(QWP_OUT_2,  basis_angles[basis_out.upper()][1], COMPORT)
 
 
 def polarisation_tuner():
     mode = input("Polarisation mode — 'input' (IN/IN_2) or 'loop' (IN/TOM_1/OUT_2): ").strip().lower()
     if mode == 'loop':
         _set = set_stages_loop
-        print("Loop mode: IN sets input, TOM_1 reverses on return, OUT_2 selects output basis")
+        print("Loop mode: IN_2 reverses input polarisation (negative angles), OUT_2 selects output basis")
     else:
         _set = set_stages
         print("Input mode: IN sets input, IN_2 sets output basis")
