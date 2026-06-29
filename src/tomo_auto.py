@@ -21,7 +21,8 @@ import libraries.tomography as tl
 from libraries.angle_menu import angle_menu
 from libraries.basis_vectors import basis_angles
 from libraries.settings import (HWP_IN, QWP_IN, QWP_TOM_DUMP, HWP_TOM_DUMP,
-                                HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
+                                HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
+                                HWP_TOM_1, QWP_TOM_1, COMPORT, SIM_MODE)
 from libraries.notifier import notify
 
 
@@ -39,6 +40,12 @@ def _set_fixed_waveplates(angles):
         tl.move_stage(HWP_OUT_2, angles['hf2'], COMPORT)
     if angles.get('qf2'):
         tl.move_stage(QWP_OUT_2, angles['qf2'], COMPORT)
+
+
+def _tomo_stages(path: int):
+    if path == 1:
+        return HWP_TOM_1, QWP_TOM_1
+    return HWP_OUT_2, QWP_OUT_2
 
 
 def _get_powermeter(wavelength=1550, verbose=True):
@@ -97,10 +104,11 @@ def polarisation_tuner():
 def single_tomo(basis, angles, path: int = 2):
     print(f"Performing tomography for single input basis |{basis}>")
     _set_fixed_waveplates(angles)
+    hwp_tom, qwp_tom = _tomo_stages(path)
     tl.move_stage(HWP_IN, basis_angles[basis][0], COMPORT)
     tl.move_stage(QWP_IN, basis_angles[basis][1], COMPORT)
     with _get_powermeter() as pm:
-        res = {basis: tl.single_tomography(qwp=QWP_TOM_DUMP, hwp=HWP_TOM_DUMP, powermeter=pm, smc_port=COMPORT)}
+        res = {basis: tl.single_tomography(qwp=qwp_tom, hwp=hwp_tom, powermeter=pm, smc_port=COMPORT)}
     _beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], plot_type='Single', angles=angles, show_plot=True, path=path)
     notify(f"|{basis}⟩ tomo done — fit: {fit:.4f} — {angles['title']}", title="Single tomo complete")
@@ -109,8 +117,9 @@ def single_tomo(basis, angles, path: int = 2):
 def full_tomo(angles, path: int = 2):
     print("Performing tomography for H, V, A, D input states")
     _set_fixed_waveplates(angles)
+    hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_TOM_DUMP, HWP_TOM_DUMP, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
+        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
     _beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full', show_plot=False, path=path)
     notify(f"HVAD tomo done — fit: {fit:.4f} — {angles['title']}", title="Full tomo complete", priority="high")
@@ -119,8 +128,9 @@ def full_tomo(angles, path: int = 2):
 def full6_tomo(angles, path: int = 2):
     print("Performing tomography for all 6 input states (H, V, A, D, R, L)")
     _set_fixed_waveplates(angles)
+    hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_TOM_DUMP, HWP_TOM_DUMP, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
+        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
     _beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full6', show_plot=False, path=path)
     notify(f"HVADRL tomo done — fit: {fit:.4f} — {angles['title']}", title="Full 6 tomo complete", priority="high")
@@ -129,8 +139,9 @@ def full6_tomo(angles, path: int = 2):
 def hv_tomo(angles, path: int = 2):
     print("Performing tomography for H and V input states")
     _set_fixed_waveplates(angles)
+    hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_TOM_DUMP, HWP_TOM_DUMP, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HV_BASES)
+        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HV_BASES)
     _beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='HV', show_plot=True, path=path)
     notify(f"HV tomo done — fit: {fit:.4f} — {angles['title']}", title="HV tomo complete")
@@ -139,12 +150,13 @@ def hv_tomo(angles, path: int = 2):
 def multi_run(angles, path: int = 2):
     n = int(input("Collect how many measurements?: "))
     _set_fixed_waveplates(angles)
+    hwp_tom, qwp_tom = _tomo_stages(path)
     res_out = {}
     with _get_powermeter() as pm:
         try:
             for i in range(n):
                 print(f"Performing measurement {i + 1}/{n}...")
-                res_out[i] = tl.input_tomography(QWP_TOM_DUMP, HWP_TOM_DUMP, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
+                res_out[i] = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
                 notify(f"Run {i + 1}/{n} done — {angles['title']}", title="Multi-run progress")
         except Exception as e:
             print(f"Measurement failed: {e}")
