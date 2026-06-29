@@ -26,47 +26,34 @@ ALL_STAGES = {
     QWP_TOM_DUMP.ID: 'QWP_TOM_DUMP',
 }
 
-# NOT REFERENCED states — stage needs homing
 _NOT_REFERENCED = {'0A', '0B', '0C', '0D', '0E', '0F', '10', '11'}
 
 
-def _check_and_home(stage_ids):
-    if SIM_MODE:
-        print("[SIM] Would home stages:", stage_ids)
-        return
-
+def _get_state(sid):
     import interfaces.smc100 as smc
     with smc.SMC100Connection(port=COMPORT) as conn:
-        for sid in stage_ids:
-            stage = smc.SMC100Stage(conn, smcID=sid)
-            _, state = stage.get_status()
-            needs_home = state in _NOT_REFERENCED
-            name = ALL_STAGES.get(sid, str(sid))
-            if needs_home:
-                print(f"  Homing stage {sid} ({name})...")
-                stage.home(waitStop=True)
-                print(f"  Stage {sid} ({name}) homed.")
-            else:
-                print(f"  Stage {sid} ({name}) already homed — skipping.")
+        stage = smc.SMC100Stage(conn, smcID=sid)
+        _, state = stage.get_status()
+    return state
+
+
+def _home_stage(sid):
+    import interfaces.smc100 as smc
+    with smc.SMC100Connection(port=COMPORT) as conn:
+        stage = smc.SMC100Stage(conn, smcID=sid)
+        stage.enable()
+        stage.home(waitStop=True)
+        stage.disable()
 
 
 def main():
     if SIM_MODE:
         print("[SIM MODE]")
-
-    print("Checking stage homing status...")
-
-    if SIM_MODE:
         unhomed = list(ALL_STAGES.keys())
     else:
-        import interfaces.smc100 as smc
-        unhomed = []
-        with smc.SMC100Connection(port=COMPORT) as conn:
-            for sid, name in ALL_STAGES.items():
-                stage = smc.SMC100Stage(conn, smcID=sid)
-                _, state = stage.get_status()
-                if state in _NOT_REFERENCED:
-                    unhomed.append(sid)
+        print("Checking stage homing status...")
+        unhomed = [sid for sid, name in ALL_STAGES.items()
+                   if _get_state(sid) in _NOT_REFERENCED]
 
     if not unhomed:
         print("All stages are homed.")
@@ -79,7 +66,7 @@ def main():
     choice = input("\nEnter stage number to home, or press Enter to home all: ").strip()
 
     if choice == '':
-        _check_and_home(unhomed)
+        to_home = unhomed
     else:
         try:
             sid = int(choice)
@@ -89,7 +76,14 @@ def main():
         if sid not in ALL_STAGES:
             print(f"Stage {sid} not recognised.")
             return
-        _check_and_home([sid])
+        to_home = [sid]
+
+    for sid in to_home:
+        name = ALL_STAGES[sid]
+        print(f"  Homing stage {sid} ({name})...")
+        if not SIM_MODE:
+            _home_stage(sid)
+        print(f"  Stage {sid} ({name}) homed.")
 
     print("Done.")
 
