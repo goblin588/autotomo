@@ -81,7 +81,8 @@ def getUnitary(qf2=0, hf2=0, qf1=0, hf1=0, m3=0, m2=0, h2=0, q2=0,
     M3 = ol.Mirror4(m3, m1)
     M2 = ol.Mirror4(m2, m2)
     M1 = ol.Mirror4(m1, m3)
-    return HWPf2 @ QWPf2 @ HWPf1 @ QWPf1 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
+    # return HWPf2 @ QWPf2 @ HWPf1 @ QWPf1 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
+    return HWPf2 @ QWPf2 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
 
 
 def UnitaryToProb(U: np.ndarray, input: np.ndarray, path: int = 2) -> dict:
