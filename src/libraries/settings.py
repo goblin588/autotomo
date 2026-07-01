@@ -22,14 +22,14 @@ FIG_DIR = PROJECT_ROOT / "data" / "Figures"
 
 qwp_in_oa = 3
 hwp_in_oa = 54.57
-qwp_tom_dump_oa = 107.58
-hwp_tom_dump_oa = 41.50
+qwp_tom_dump_oa = 73
+hwp_tom_dump_oa = 35.5
 qwp_in_2_oa = 131.32
 hwp_in_2_oa = 29.24
-hwp_tom_1_oa = 1
-qwp_tom_1_oa = 1
-hwp_out_2_oa = 1
-qwp_out_2_oa = 1
+hwp_tom_1_oa = 41.5
+qwp_tom_1_oa = 107.58
+hwp_out_2_oa = 13
+qwp_out_2_oa = 12.5
 
 
 # STAGES
