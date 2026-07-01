@@ -68,9 +68,9 @@ def set_stages(basis_in, basis_out):
 
 
 def set_stages_loop(basis_in, basis_out):
-    tl.move_stage(HWP_IN_2,  -basis_angles[basis_in.upper()][0],  COMPORT)
+    tl.move_stage(HWP_IN_2,  basis_angles[basis_in.upper()][0],  COMPORT)
     tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_OUT_2,  -basis_angles[basis_out.upper()][0], COMPORT)
+    tl.move_stage(HWP_OUT_2,  basis_angles[basis_out.upper()][0], COMPORT)
     tl.move_stage(QWP_OUT_2,  -basis_angles[basis_out.upper()][1], COMPORT)
 
 
