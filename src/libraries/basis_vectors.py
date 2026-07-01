@@ -63,21 +63,25 @@ basis_angles = {
     "D": [22.5,45],
     "R": [22.5,0],
     "L": [-22.5,0],
-    "s0_3": [302.88, 147.052],
-    "s0_4": [290.14, 118.88], 
-    "s0_5": [104.33, 131.71], 
-    "s0_6": [39.35, 50.344]
+    # "s0_3": [302.88, 147.052],
+    # "s0_4": [290.14, 118.88], 
+    # "s0_5": [104.33, 131.71], 
+    # "s0_6": [39.35, 50.344]
 }
 
-# import OpticsLib as ol
+import optics as ol
 
-# input_state = basis_vectors_2["V"]
+# basis = "L"
 
-# # print(ol.HWP(basis_angles["D"][0]))
-# # print(ol.QWP(basis_angles["D"][1]))
-# # print(np.transpose(input_state))
+# input_state = basis_vectors_2[basis]
 
-# out = ol.QWP(0)@ol.HWP(-22.5)@input_state
+# out = ol.HWP(-basis_angles[basis][0])@ol.QWP(-1*basis_angles[basis][1])@ol.QWP(basis_angles[basis][1])@ol.HWP(basis_angles[basis][0])@input_state
 
-# overlap = np.abs(np.conjugate(np.transpose(out))@basis_vectors_2["L"])**2
+# overlap = np.abs(np.conjugate(np.transpose(out))@basis_vectors_2[basis])**2
 # print(overlap)
+
+# for basis in basis_angles.keys():
+#     input_state = basis_vectors_2[basis]
+#     out = ol.HWP(basis_angles[basis][0]) @ ol.QWP(90+basis_angles[basis][1]) @ ol.QWP(basis_angles[basis][1]) @ ol.HWP(basis_angles[basis][0]) @ input_state
+#     overlap = np.abs(np.conjugate(np.transpose(out)) @ basis_vectors_2[basis])**2
+#     print(f'{basis}: {overlap}')
