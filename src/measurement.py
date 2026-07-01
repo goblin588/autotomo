@@ -20,7 +20,6 @@ def prepare_s0_state(N):
     tl.move_stage(QWP_IN, qwp_angle, COMPORT)
     print(f"Input stages set to s0 state for N={N}  (HWP={hwp_angle:.3f}°, QWP={qwp_angle:.3f}°)")
 
-
 def main():
     if SIM_MODE:
         print("[SIM MODE] Running without hardware")
