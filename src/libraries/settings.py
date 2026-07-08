@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FIG_DIR = PROJECT_ROOT / "data" / "Figures"
 
 qwp_in_oa = 3
-hwp_in_oa = 54.57
+hwp_in_oa = 54.57 + 45  # +45: true input polarisation is V, not H (basis_angles assumes H)
 qwp_tom_dump_oa = 73
 hwp_tom_dump_oa = 35.5
 qwp_in_2_oa = 131.32
