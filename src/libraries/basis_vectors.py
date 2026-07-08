@@ -78,19 +78,16 @@ process_state_angles = {
     "s0_6": [39.35, 50.344]
 }
 
-# import optics as ol
+if __name__ == "__main__":
+    # Scratch check: prep D then analyze with HWP(22.5)/QWP(0), print overlaps.
+    import optics as ol
 
-# basis = "L"
+    basis = "D"
 
-# input_state = basis_vectors_2[basis]
+    input_state = basis_vectors_2["H"]
 
-# out = ol.HWP(-basis_angles[basis][0])@ol.QWP(-1*basis_angles[basis][1])@ol.QWP(basis_angles[basis][1])@ol.HWP(basis_angles[basis][0])@input_state
+    out = ol.QWP(0)@ol.HWP(22.5)@ol.QWP(-basis_angles[basis][1])@ol.HWP(-basis_angles[basis][0])@input_state
 
-# overlap = np.abs(np.conjugate(np.transpose(out))@basis_vectors_2[basis])**2
-# print(overlap)
-
-# for basis in basis_angles.keys():
-#     input_state = basis_vectors_2[basis]
-#     out = ol.HWP(basis_angles[basis][0]) @ ol.QWP(90+basis_angles[basis][1]) @ ol.QWP(basis_angles[basis][1]) @ ol.HWP(basis_angles[basis][0]) @ input_state
-#     overlap = np.abs(np.conjugate(np.transpose(out)) @ basis_vectors_2[basis])**2
-#     print(f'{basis}: {overlap}')
+    for basis in basis_angles.keys():
+        overlap = np.abs(np.conjugate(np.transpose(out)) @ basis_vectors_2[basis])**2
+        print(f'{basis}: {overlap}')

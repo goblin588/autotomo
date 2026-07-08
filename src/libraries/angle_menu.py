@@ -1,8 +1,7 @@
 import numpy as np
 from libraries.waveplate_angles import unitaries_angles
 
-def angle_menu(): 
-    # ADD HF1 and QF1, and include N number 3-6
+def angle_menu():
     angles = {'q1': 0,
               'h1': 0,
               'q2': 0,
