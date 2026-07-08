@@ -74,9 +74,38 @@ def set_stages_loop(basis_in, basis_out):
     tl.move_stage(QWP_OUT_2,  -basis_angles[basis_out.upper()][1], COMPORT)
 
 
+# Angles that rotate H or D input to V output, solved from the HQQH Jones-matrix
+# model (see optics.py) since basis_angles[basis_out] doesn't apply directly here.
+_ROTATE_TO_V = {
+    'H': dict(hwp_in=0,    qwp_in=0,  hwp_out=45,    qwp_out=0),
+    'D': dict(hwp_in=22.5, qwp_in=45, hwp_out=-22.5, qwp_out=0),
+}
+
+_ROTATE_TO_V_LOOP = {
+    # loop plates are mounted backwards -> commanded angle = -1 * physical angle
+    'H': dict(hwp_in=-45,  qwp_in=0,  hwp_out=0,    qwp_out=0),
+    'D': dict(hwp_in=22.5, qwp_in=45, hwp_out=22.5, qwp_out=0),
+}
+
+
+def set_stages_to_v(basis_in, loop):
+    recipe = (_ROTATE_TO_V_LOOP if loop else _ROTATE_TO_V)[basis_in.upper()]
+    if loop:
+        tl.move_stage(HWP_IN_2,  recipe['hwp_in'],  COMPORT)
+        tl.move_stage(QWP_IN_2,  recipe['qwp_in'],  COMPORT)
+        tl.move_stage(HWP_OUT_2, recipe['hwp_out'], COMPORT)
+        tl.move_stage(QWP_OUT_2, recipe['qwp_out'], COMPORT)
+    else:
+        tl.move_stage(HWP_IN,   recipe['hwp_in'],  COMPORT)
+        tl.move_stage(QWP_IN,   recipe['qwp_in'],  COMPORT)
+        tl.move_stage(HWP_IN_2, recipe['hwp_out'], COMPORT)
+        tl.move_stage(QWP_IN_2, recipe['qwp_out'], COMPORT)
+
+
 def polarisation_tuner():
     mode = input("Polarisation mode — 'input' (IN/IN_2) or 'loop' (IN/TOM_1/OUT_2): ").strip().lower()
-    if mode == 'loop':
+    loop = mode == 'loop'
+    if loop:
         _set = set_stages_loop
         print("Loop mode: IN_2 reverses input polarisation (negative angles), OUT_2 selects output basis")
     else:
@@ -93,14 +122,9 @@ def polarisation_tuner():
             _set(user_input, user_input)
             print(f"Measuring {user_input.upper()} basis")
         else:
-            if this_basis == 'D':
-                this_basis = 'H'
-                _set('H', 'V')
-                print("Measuring H in V OUT")
-            else:
-                this_basis = 'D'
-                _set('D', 'A')
-                print("Measuring D in A OUT")
+            this_basis = 'H' if this_basis == 'D' else 'D'
+            set_stages_to_v(this_basis, loop)
+            print(f"Measuring {this_basis} in V OUT")
         print("READY")
         _beep()
 
