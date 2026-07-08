@@ -15,7 +15,6 @@ dependencies = [
 
 [project.scripts]
 tomo-auto      = "tomo_auto:main"
-autotomo-measure = "measurement:main"
 set-stages     = "set_stage_angles:main"
 read-data      = "read_data:main"
 

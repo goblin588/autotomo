@@ -74,8 +74,7 @@ def set_stages_loop(basis_in, basis_out):
     tl.move_stage(QWP_OUT_2,  -basis_angles[basis_out.upper()][1], COMPORT)
 
 
-# Angles that rotate H or D input to V output, solved from the HQQH Jones-matrix
-# model (see optics.py) since basis_angles[basis_out] doesn't apply directly here.
+# Angles that rotate H or D input to V output, solved from the HQQH 
 _ROTATE_TO_V = {
     'H': dict(hwp_in=0,    qwp_in=0,  hwp_out=45,    qwp_out=0),
     'D': dict(hwp_in=22.5, qwp_in=45, hwp_out=-22.5, qwp_out=0),
