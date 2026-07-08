@@ -54,8 +54,7 @@ basis_vectors_2 = {
     "L": L_2
 }
 
-# For projection in tomography
-# Angles [HWP, QWP] 
+# State-prep angles [HWP, QWP]: input arm is HWP-then-QWP, so these take H -> basis.
 basis_angles = {
     "H": [0,0],
     "V": [45,0],
@@ -63,6 +62,13 @@ basis_angles = {
     "D": [22.5,45],
     "R": [-22.5,0],
     "L": [22.5,0],
+}
+
+# Analyzer angles [HWP, QWP]: tomography arm is QWP-then-HWP, so these take basis -> H.
+# Same HWP angle as basis_angles, QWP angle shifted by 90 (QWP(t)^-1 == QWP(t+90)).
+tomo_angles = {
+    name: [hwp, qwp + 90 if qwp <= 0 else qwp - 90]
+    for name, (hwp, qwp) in basis_angles.items()
 }
 
 process_state_angles = {
