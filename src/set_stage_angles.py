@@ -28,10 +28,6 @@ _STAGE_MAP: dict[int, Waveplate] = {
 }
 
 
-def _beep():
-    print('\a', end='', flush=True)
-
-
 def _move_pair(hwp, qwp, basis, angles=basis_angles):
     tl.move_stage(hwp, angles[basis][0], COMPORT)
     tl.move_stage(qwp, angles[basis][1], COMPORT)
@@ -108,7 +104,7 @@ def main():
     else:
         print("Unrecognised input.")
 
-    _beep()
+    tl.beep()
 
 
 if __name__ == "__main__":

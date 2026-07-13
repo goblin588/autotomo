@@ -19,37 +19,11 @@ import libraries.data_processing as dpl
 import libraries.plotting as cpl
 import libraries.tomography as tl
 from libraries.angle_menu import angle_menu
-from libraries.basis_vectors import basis_angles
-from libraries.settings import (HWP_IN, QWP_IN, QWP_TOM_DUMP, HWP_TOM_DUMP,
-                                HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
-                                HWP_TOM_1, QWP_TOM_1, COMPORT, SIM_MODE)
+from libraries.basis_vectors import process_state_angles
+from libraries.settings import (HWP_IN, QWP_IN, HWP_TOM_1, QWP_TOM_1,
+                                HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
 from libraries.notifier import notify
-
-
-def _beep():
-    print('\a', end='', flush=True)
-
-
-def _set_fixed_waveplates(angles, path=None):
-    """Move any fixed-position waveplates that have non-zero angles set.
-
-    The analyzer pair for `path` (TOM_1 for path 1, OUT_2 for path 2) is
-    skipped — the tomo sweep drives it. path=None sets all pairs.
-    """
-    plates = [
-        ('hin2', 'HWP_IN_2',  HWP_IN_2),
-        ('qin2', 'QWP_IN_2',  QWP_IN_2),
-        ('hf2',  'HWP_OUT_2', HWP_OUT_2),
-        ('qf2',  'QWP_OUT_2', QWP_OUT_2),
-        ('hf1',  'HWP_TOM_1', HWP_TOM_1),
-        ('qf1',  'QWP_TOM_1', QWP_TOM_1),
-    ]
-    skip = {1: ('hf1', 'qf1'), 2: ('hf2', 'qf2')}.get(path, ())
-    for key, name, stage in plates:
-        if key in skip or angles.get(key) is None:
-            continue
-        print(f"Setting {name} to {angles[key]}°")
-        tl.move_stage(stage, angles[key], COMPORT)
+from polarisation_tuner import polarisation_tuner
 
 
 def _tomo_stages(path: int):
@@ -66,126 +40,45 @@ def _get_powermeter(wavelength=1550, verbose=True):
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 
-def set_stages(basis_in, basis_out):
-    tl.move_stage(HWP_IN,   basis_angles[basis_in.upper()][0],  COMPORT)
-    tl.move_stage(QWP_IN,   basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_IN_2, basis_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_IN_2, basis_angles[basis_out.upper()][1], COMPORT)
+def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
+    """Tomo each input basis in bases, then plot against theory and notify.
+
+    angle_table: prep-angle lookup passed to input_tomography (default
+    basis_angles; pass process_state_angles for s{j}_{N} inputs).
+    """
+    print(f"Performing tomography for input states: {', '.join(bases)}")
+    tl.set_fixed_waveplates(angles, path)
+    hwp_tom, qwp_tom = _tomo_stages(path)
+    with _get_powermeter() as pm:
+        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT,
+                                  bases=bases, angle_table=angle_table)
+    tl.beep()
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
+                                    plot_type=plot_type, show_plot=show_plot, path=path)
+    notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
+           title=f"{plot_type} tomo complete",
+           priority="high" if len(bases) > 2 else "default")
 
 
-def set_stages_loop(basis_in, basis_out):
-    tl.move_stage(HWP_IN_2,  basis_angles[basis_in.upper()][0],  COMPORT)
-    tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_OUT_2,  basis_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_OUT_2,  -basis_angles[basis_out.upper()][1], COMPORT)
-
-
-# D->V output rotation isn't a basis state, so it isn't in basis_angles.
-_D_TO_V_OUT = (-22.5, 0)
-
-
-def set_stages_to_v(basis_in, loop):
-    """Input plates always take H and prepare H or D; output plates then rotate H or D to V."""
-    basis_in = basis_in.upper()
-    if basis_in == 'H':
-        hwp_in, qwp_in = basis_angles['H']
-        hwp_out, qwp_out = basis_angles['V']
-    elif basis_in == 'D':
-        hwp_in, qwp_in = basis_angles['D']
-        if loop:
-            qwp_in = -qwp_in  # loop QWPs are mounted backwards
-        hwp_out, qwp_out = _D_TO_V_OUT
+def s_tomo(angles, path):
+    """Tomo the s{j}_{N} process states for the chosen unitary N."""
+    N = angles.get('N', '3')
+    s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+    j = input(f"Which s state for N={N}? (0-{len(s_keys) - 1}, or Enter for all): ").strip()
+    if j:
+        key = f's{j}_{N}'
+        if key not in process_state_angles:
+            print(f"No state {key}. Options: {', '.join(s_keys)}")
+            return
+        bases = (key,)
     else:
-        raise ValueError(f"No V-rotation recipe for basis {basis_in}")
-
-    if loop:
-        tl.move_stage(HWP_IN_2,  hwp_in,  COMPORT)
-        tl.move_stage(QWP_IN_2,  qwp_in,  COMPORT)
-        tl.move_stage(HWP_OUT_2, hwp_out, COMPORT)
-        tl.move_stage(QWP_OUT_2, qwp_out, COMPORT)
-    else:
-        tl.move_stage(HWP_IN,   hwp_in,  COMPORT)
-        tl.move_stage(QWP_IN,   qwp_in,  COMPORT)
-        tl.move_stage(HWP_IN_2, hwp_out, COMPORT)
-        tl.move_stage(QWP_IN_2, qwp_out, COMPORT)
-
-
-def polarisation_tuner():
-    mode = input("Polarisation mode — 'input' (IN/IN_2) or 'loop' (IN/TOM_1/OUT_2): ").strip().lower()
-    loop = mode == 'loop'
-    if loop:
-        _set = set_stages_loop
-        print("Loop mode: IN_2 reverses input polarisation (negative angles), OUT_2 selects output basis")
-    else:
-        _set = set_stages
-        print("Input mode: IN sets input, IN_2 sets output basis")
-
-    this_basis = 'H'
-    while True:
-        print("Press enter to swap basis, type a basis letter (H/V/A/D/R/L), or 'stop' to exit")
-        user_input = input()
-        if user_input.lower() == 'stop':
-            break
-        elif user_input.upper() in basis_angles:
-            _set(user_input, user_input)
-            print(f"Measuring {user_input.upper()} basis")
-        else:
-            this_basis = 'H' if this_basis == 'D' else 'D'
-            set_stages_to_v(this_basis, loop)
-            print(f"Measuring {this_basis} in V OUT")
-        print("READY")
-        _beep()
-
-
-def single_tomo(basis, angles, path: int = 2):
-    print(f"Performing tomography for single input basis |{basis}>")
-    _set_fixed_waveplates(angles, path)
-    hwp_tom, qwp_tom = _tomo_stages(path)
-    tl.move_stage(HWP_IN, basis_angles[basis][0], COMPORT)
-    tl.move_stage(QWP_IN, basis_angles[basis][1], COMPORT)
-    with _get_powermeter() as pm:
-        res = {basis: tl.single_tomography(qwp=qwp_tom, hwp=hwp_tom, powermeter=pm, smc_port=COMPORT)}
-    _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], plot_type='Single', angles=angles, show_plot=True, path=path)
-    notify(f"|{basis}⟩ tomo done — fit: {fit:.4f} — {angles['title']}", title="Single tomo complete")
-
-
-def full_tomo(angles, path: int = 2):
-    print("Performing tomography for H, V, A, D input states")
-    _set_fixed_waveplates(angles, path)
-    hwp_tom, qwp_tom = _tomo_stages(path)
-    with _get_powermeter() as pm:
-        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
-    _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full', show_plot=False, path=path)
-    notify(f"HVAD tomo done — fit: {fit:.4f} — {angles['title']}", title="Full tomo complete", priority="high")
-
-
-def full6_tomo(angles, path: int = 2):
-    print("Performing tomography for all 6 input states (H, V, A, D, R, L)")
-    _set_fixed_waveplates(angles, path)
-    hwp_tom, qwp_tom = _tomo_stages(path)
-    with _get_powermeter() as pm:
-        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
-    _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='Full6', show_plot=False, path=path)
-    notify(f"HVADRL tomo done — fit: {fit:.4f} — {angles['title']}", title="Full 6 tomo complete", priority="high")
-
-
-def hv_tomo(angles, path: int = 2):
-    print("Performing tomography for H and V input states")
-    _set_fixed_waveplates(angles, path)
-    hwp_tom, qwp_tom = _tomo_stages(path)
-    with _get_powermeter() as pm:
-        res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HV_BASES)
-    _beep()
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles, plot_type='HV', show_plot=True, path=path)
-    notify(f"HV tomo done — fit: {fit:.4f} — {angles['title']}", title="HV tomo complete")
+        bases = s_keys
+    run_tomo(angles, path, bases, plot_type=f'S{N}', angle_table=process_state_angles)
 
 
 def multi_run(angles, path: int = 2):
     n = int(input("Collect how many measurements?: "))
-    _set_fixed_waveplates(angles, path)
+    tl.set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     res_out = {}
     with _get_powermeter() as pm:
@@ -198,7 +91,7 @@ def multi_run(angles, path: int = 2):
             print(f"Measurement failed: {e}")
             notify(f"Measurement failed at run {len(res_out)}/{n}: {e}", title="autotomo error", priority="urgent")
 
-    _beep()
+    tl.beep()
     notify(f"All {n} runs complete — {angles['title']}", title="Multi-run complete", priority="high")
 
     for i in res_out:
@@ -231,43 +124,40 @@ def main():
     _p = input("Output path [1/2, default 2]: ").strip()
     path = 1 if _p == '1' else 2
 
-    run = True
-    while run:
+    while True:
         choice = input(
             "Mode?\n"
             "  H/V/A/D/R/L  — single basis tomo\n"
             "  HV            — H + V only\n"
             "  F             — HVAD (4 input states)\n"
             "  6             — HVADRL (all 6 input states)\n"
+            "  S             — s_j process state tomo\n"
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
-            "  R             — replot saved data\n"
+            "  P             — replot saved data\n"
             "> "
         ).upper()
 
-        if choice in ['H', 'V', 'A', 'D', 'R', 'L']:
-            single_tomo(choice, angles, path)
-            run = False
+        if choice in tl.FULL_BASES:
+            run_tomo(angles, path, (choice,), 'Single', show_plot=True)
         elif choice == 'HV':
-            hv_tomo(angles, path)
-            run = False
+            run_tomo(angles, path, tl.HV_BASES, 'HV', show_plot=True)
         elif choice == 'F':
-            full_tomo(angles, path)
-            run = False
+            run_tomo(angles, path, tl.HVAD_BASES, 'Full')
         elif choice == '6':
-            full6_tomo(angles, path)
-            run = False
+            run_tomo(angles, path, tl.FULL_BASES, 'Full6')
+        elif choice == 'S':
+            s_tomo(angles, path)
         elif choice == 'M':
             multi_run(angles, path)
-            run = False
         elif choice == 'T':
             polarisation_tuner()
-            run = False
-        elif choice == 'R':
+        elif choice == 'P':
             replot(angles, path)
-            run = False
         else:
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, M, T, R")
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, M, T, P")
+            continue
+        break
 
 
 if __name__ == "__main__":

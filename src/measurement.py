@@ -14,7 +14,6 @@ import libraries.tomography as tl
 from libraries.basis_vectors import process_state_angles
 from libraries.settings import HWP_IN, QWP_IN, COMPORT, SIM_MODE
 from libraries.waveplate_angles import unitaries_angles
-from tomo_auto import _beep, _set_fixed_waveplates
 
 
 def main():
@@ -30,8 +29,8 @@ def main():
     tl.move_stage(HWP_IN, hwp_angle, COMPORT)
     tl.move_stage(QWP_IN, qwp_angle, COMPORT)
 
-    _set_fixed_waveplates(unitaries_angles[N])
-    _beep()
+    tl.set_fixed_waveplates(unitaries_angles[N])
+    tl.beep()
     print("READY")
 
 

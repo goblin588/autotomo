@@ -14,7 +14,8 @@ import numpy as np
 
 import libraries.optics as ol
 from libraries.optics import PBS, PBS_dag
-from libraries.basis_vectors import basis_vectors, basis_vectors_p1
+from libraries.basis_vectors import (basis_vectors, basis_vectors_p1,
+                                     basis_vectors_2, process_state_angles)
 
 ROUND_TO = 8  # decimal places used in matrix rounding
 
@@ -88,6 +89,18 @@ def getUnitary(qf2=0, hf2=0, qf1=0, hf1=0, m3=0, m2=0, h2=0, q2=0,
     if path == 2:
         return ol.HWP_p1(hf1) @ ol.QWP_p1(qf1) @ U
     return ol.HWP_p2(hf2) @ ol.QWP_p2(qf2) @ U
+
+
+def input_state_vector(basis: str) -> np.ndarray:
+    """4-vector for a named input basis, or an s{j}_{N} process state computed
+    from its prep angles: QWP(q) @ HWP(h) @ |H> (input arm is HWP-then-QWP),
+    embedded in path 2 like the named basis vectors.
+    """
+    if basis in basis_vectors:
+        return basis_vectors[basis]
+    hwp, qwp = process_state_angles[basis]
+    v = np.asarray(ol.QWP(qwp) @ ol.HWP(hwp) @ basis_vectors_2['H'])
+    return np.vstack([np.zeros((2, 1)), v])
 
 
 def UnitaryToProb(U: np.ndarray, input: np.ndarray, path: int = 2) -> dict:
@@ -244,7 +257,7 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
 
     fit = 0.0
     for ax, basis in zip(axes, bases):
-        theory = UnitaryToProb(U, basis_vectors[basis], path=path)
+        theory = UnitaryToProb(U, input_state_vector(basis), path=path)
         fit += _render_basis_subplot(ax, basis, normalized_data[basis], theory,
                                      raw_slice=data[basis])
 
