@@ -71,18 +71,23 @@ def normalise_full_tomo_data(res: dict) -> dict:
 # ── Unitary math ──────────────────────────────────────────────────────────────
 
 def getUnitary(qf2=0, hf2=0, qf1=0, hf1=0, m3=0, m2=0, h2=0, q2=0,
-               m1=0, h1=0, q1=0, qin2=0, hin2=0) -> np.ndarray:
-    """Return 4×4 unitary matrix for the current waveplate angle configuration."""
-    QWPf2  = ol.QWP_p2(qf2);  HWPf2  = ol.HWP_p2(hf2)
-    QWPf1  = ol.QWP_p1(qf1);  HWPf1  = ol.HWP_p1(hf1)
+               m1=0, h1=0, q1=0, qin2=0, hin2=0, path=2) -> np.ndarray:
+    """Return 4×4 unitary matrix for the current waveplate angle configuration.
+
+    The analyzer pair on the measured `path` (f1/TOM_1 for path 1, f2/OUT_2 for
+    path 2) is excluded from U — it is modeled by the basis projection in
+    UnitaryToProb. The opposite path's pair stays in U at its fixed angles.
+    """
     HWP2   = ol.HWP_p2(h2);   QWP2   = ol.QWP_p2(q2)
     HWP1   = ol.HWP_p1(h1);   QWP1   = ol.QWP_p1(q1)
     QWPin2 = ol.QWP_p2(qin2); HWPin2 = ol.HWP_p2(hin2)
     M3 = ol.Mirror4(m3, m1)
     M2 = ol.Mirror4(m2, m2)
     M1 = ol.Mirror4(m1, m3)
-    # f1 plates (TOM_1) are the path-1 analyzer — modeled by the basis projection, not U.
-    return HWPf2 @ QWPf2 @ PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
+    U = PBS_dag @ M3 @ M2 @ M1 @ HWP2 @ QWP2 @ HWP1 @ QWP1 @ PBS @ HWPin2 @ QWPin2
+    if path == 2:
+        return ol.HWP_p1(hf1) @ ol.QWP_p1(qf1) @ U
+    return ol.HWP_p2(hf2) @ ol.QWP_p2(qf2) @ U
 
 
 def UnitaryToProb(U: np.ndarray, input: np.ndarray, path: int = 2) -> dict:
@@ -111,7 +116,7 @@ def UnitaryToProb(U: np.ndarray, input: np.ndarray, path: int = 2) -> dict:
 
 # ── Private plot helpers ──────────────────────────────────────────────────────
 
-def _unitary_from_angles(angles: dict) -> np.ndarray:
+def _unitary_from_angles(angles: dict, path: int = 2) -> np.ndarray:
     return getUnitary(
         q1=angles['q1'],           h1=angles['h1'],
         q2=angles['q2'],           h2=angles['h2'],
@@ -119,6 +124,7 @@ def _unitary_from_angles(angles: dict) -> np.ndarray:
         qf1=angles.get('qf1', 0),  hf1=angles.get('hf1', 0),
         qin2=angles['qin2'],       hin2=angles['hin2'],
         m1=angles['m1'],           m2=angles['m2'],  m3=angles['m3'],
+        path=path,
     )
 
 
@@ -230,7 +236,7 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
     Works for any number of bases — subplots scale in a 2-column layout.
     data: {input_basis: {output_state: (raw_val, raw_err)}}
     """
-    U = _unitary_from_angles(angles)
+    U = _unitary_from_angles(angles, path=path)
     normalized_data = normalise_full_tomo_data(data)
     bases = list(normalized_data.keys())
 

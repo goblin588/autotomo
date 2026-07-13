@@ -30,20 +30,26 @@ def _beep():
     print('\a', end='', flush=True)
 
 
-def _set_fixed_waveplates(angles):
-    """Move any fixed-position waveplates that have non-zero angles set."""
-    if angles.get('hin2') is not None:
-        print(f"Setting HWP_IN_2 to {angles['hin2']}°")
-        tl.move_stage(HWP_IN_2, angles['hin2'], COMPORT)
-    if angles.get('qin2') is not None:
-        print(f"Setting QWP_IN_2 to {angles['qin2']}°")
-        tl.move_stage(QWP_IN_2, angles['qin2'], COMPORT)
-    if angles.get('hf2') is not None:
-        print(f"Setting HWP_OUT_2 to {angles['hf2']}°")
-        tl.move_stage(HWP_OUT_2, angles['hf2'], COMPORT)
-    if angles.get('qf2') is not None:
-        print(f"Setting QWP_OUT_2 to {angles['qf2']}°")
-        tl.move_stage(QWP_OUT_2, angles['qf2'], COMPORT)
+def _set_fixed_waveplates(angles, path=None):
+    """Move any fixed-position waveplates that have non-zero angles set.
+
+    The analyzer pair for `path` (TOM_1 for path 1, OUT_2 for path 2) is
+    skipped — the tomo sweep drives it. path=None sets all pairs.
+    """
+    plates = [
+        ('hin2', 'HWP_IN_2',  HWP_IN_2),
+        ('qin2', 'QWP_IN_2',  QWP_IN_2),
+        ('hf2',  'HWP_OUT_2', HWP_OUT_2),
+        ('qf2',  'QWP_OUT_2', QWP_OUT_2),
+        ('hf1',  'HWP_TOM_1', HWP_TOM_1),
+        ('qf1',  'QWP_TOM_1', QWP_TOM_1),
+    ]
+    skip = {1: ('hf1', 'qf1'), 2: ('hf2', 'qf2')}.get(path, ())
+    for key, name, stage in plates:
+        if key in skip or angles.get(key) is None:
+            continue
+        print(f"Setting {name} to {angles[key]}°")
+        tl.move_stage(stage, angles[key], COMPORT)
 
 
 def _tomo_stages(path: int):
@@ -133,7 +139,7 @@ def polarisation_tuner():
 
 def single_tomo(basis, angles, path: int = 2):
     print(f"Performing tomography for single input basis |{basis}>")
-    _set_fixed_waveplates(angles)
+    _set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     tl.move_stage(HWP_IN, basis_angles[basis][0], COMPORT)
     tl.move_stage(QWP_IN, basis_angles[basis][1], COMPORT)
@@ -146,7 +152,7 @@ def single_tomo(basis, angles, path: int = 2):
 
 def full_tomo(angles, path: int = 2):
     print("Performing tomography for H, V, A, D input states")
-    _set_fixed_waveplates(angles)
+    _set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
@@ -157,7 +163,7 @@ def full_tomo(angles, path: int = 2):
 
 def full6_tomo(angles, path: int = 2):
     print("Performing tomography for all 6 input states (H, V, A, D, R, L)")
-    _set_fixed_waveplates(angles)
+    _set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.FULL_BASES)
@@ -168,7 +174,7 @@ def full6_tomo(angles, path: int = 2):
 
 def hv_tomo(angles, path: int = 2):
     print("Performing tomography for H and V input states")
-    _set_fixed_waveplates(angles)
+    _set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HV_BASES)
@@ -179,7 +185,7 @@ def hv_tomo(angles, path: int = 2):
 
 def multi_run(angles, path: int = 2):
     n = int(input("Collect how many measurements?: "))
-    _set_fixed_waveplates(angles)
+    _set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     res_out = {}
     with _get_powermeter() as pm:
