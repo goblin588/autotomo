@@ -119,10 +119,6 @@ def main():
         print("[SIM MODE] Running without hardware")
 
     print("Automated Tomography Characterisation")
-    angles = angle_menu()
-
-    _p = input("Output path [1/2, default 2]: ").strip()
-    path = 1 if _p == '1' else 2
 
     while True:
         choice = input(
@@ -138,6 +134,17 @@ def main():
             "> "
         ).upper()
 
+        if choice == 'T':
+            polarisation_tuner()
+            break
+        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'M', 'P'):
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, M, T, P")
+            continue
+
+        angles = angle_menu()
+        _p = input("Output path [1/2, default 2]: ").strip()
+        path = 1 if _p == '1' else 2
+
         if choice in tl.FULL_BASES:
             run_tomo(angles, path, (choice,), 'Single', show_plot=True)
         elif choice == 'HV':
@@ -150,13 +157,8 @@ def main():
             s_tomo(angles, path)
         elif choice == 'M':
             multi_run(angles, path)
-        elif choice == 'T':
-            polarisation_tuner()
         elif choice == 'P':
             replot(angles, path)
-        else:
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, M, T, P")
-            continue
         break
 
 
