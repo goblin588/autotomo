@@ -2,7 +2,7 @@
 Manually set waveplate stage pairs to a named basis or specific angles.
 """
 import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles, tomo_angles
+from libraries.basis_vectors import basis_angles, tomo_angles, process_state_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                  HWP_TOM_DUMP, QWP_TOM_DUMP,
                                  HWP_TOM_1, QWP_TOM_1, HWP_OUT_2, QWP_OUT_2,
@@ -12,8 +12,12 @@ from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
 # Tomography-arm pairs are QWP-then-HWP (analyzer, basis -> H): tomo_angles.
 # out2 is context-dependent (loop mode reverses the beam through it, flipping
 # its effective order) so it's left on basis_angles here as a raw reference.
+# Input arm can also be driven to the s{j}_{N} process-tomography states.
+# Keys upper-cased to match the .upper() applied to user input below.
+_INPUT_ANGLES = {**basis_angles, **{k.upper(): v for k, v in process_state_angles.items()}}
+
 _PAIRS = {
-    'in':   (HWP_IN,    QWP_IN,    "Input     (HWP_IN   / QWP_IN)", basis_angles),
+    'in':   (HWP_IN,    QWP_IN,    "Input     (HWP_IN   / QWP_IN)", _INPUT_ANGLES),
     'in2':  (HWP_IN_2,  QWP_IN_2,  "Input 2   (HWP_IN_2 / QWP_IN_2)", basis_angles),
     'dump': (HWP_TOM_DUMP, QWP_TOM_DUMP, "Tomo dump (HWP_TOM_DUMP / QWP_TOM_DUMP)", tomo_angles),
     'tom1': (HWP_TOM_1, QWP_TOM_1, "Tomo 1    (HWP_TOM_1 / QWP_TOM_1)", tomo_angles),
@@ -35,7 +39,7 @@ def _move_pair(hwp, qwp, basis, angles=basis_angles):
 
 
 def _set_pair_interactive(hwp, qwp, label, angles):
-    val = input(f"  {label}\n  Basis (H/V/A/D/R/L) or 'manual': ").strip().upper()
+    val = input(f"  {label}\n  Basis (H/V/A/D/R/L, or s0_3 etc. for 'in') or 'manual': ").strip().upper()
     if val in angles:
         _move_pair(hwp, qwp, val, angles)
     elif val == 'MANUAL':
@@ -69,10 +73,10 @@ def _set_by_number():
 
 
 def main():
-    val = input("Input basis (H/V/A/D/R/L), 'set' for stage pair menu, or 'num' for stage by number: ").strip().upper()
+    val = input("Input basis (H/V/A/D/R/L or s0_3 etc.), 'set' for stage pair menu, or 'num' for stage by number: ").strip().upper()
 
-    if val in basis_angles:
-        _move_pair(HWP_IN, QWP_IN, val)
+    if val in _INPUT_ANGLES:
+        _move_pair(HWP_IN, QWP_IN, val, _INPUT_ANGLES)
         tom = input("Tom basis (H/V/A/D/R/L): ").strip().upper()
         if tom in tomo_angles:
             _move_pair(HWP_TOM_DUMP, QWP_TOM_DUMP, tom, tomo_angles)
