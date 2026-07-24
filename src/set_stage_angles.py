@@ -10,8 +10,9 @@ from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
 
 # Input-arm pairs are HWP-then-QWP (state prep, H -> basis): basis_angles.
 # Tomography-arm pairs are QWP-then-HWP (analyzer, basis -> H): tomo_angles.
-# out2 is context-dependent (loop mode reverses the beam through it, flipping
-# its effective order) so it's left on basis_angles here as a raw reference.
+# out2 is the path-2 analyzer (same role as tom1) outside of loop tuning, so
+# it uses tomo_angles too. Loop mode's backwards OUT_2 handling lives in
+# polarisation_tuner.py, not here.
 # Input arm can also be driven to the s{j}_{N} process-tomography states.
 # Keys upper-cased to match the .upper() applied to user input below.
 _INPUT_ANGLES = {**basis_angles, **{k.upper(): v for k, v in process_state_angles.items()}}
@@ -21,7 +22,7 @@ _PAIRS = {
     'in2':  (HWP_IN_2,  QWP_IN_2,  "Input 2   (HWP_IN_2 / QWP_IN_2)", basis_angles),
     'dump': (HWP_TOM_DUMP, QWP_TOM_DUMP, "Tomo dump (HWP_TOM_DUMP / QWP_TOM_DUMP)", tomo_angles),
     'tom1': (HWP_TOM_1, QWP_TOM_1, "Tomo 1    (HWP_TOM_1 / QWP_TOM_1)", tomo_angles),
-    'out2': (HWP_OUT_2, QWP_OUT_2, "Output 2  (HWP_OUT_2 / QWP_OUT_2)", basis_angles),
+    'out2': (HWP_OUT_2, QWP_OUT_2, "Output 2  (HWP_OUT_2 / QWP_OUT_2)", tomo_angles),
 }
 
 # Map stage ID → Waveplate so OA can be applied when addressing by number
