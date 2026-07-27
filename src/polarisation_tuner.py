@@ -11,16 +11,18 @@ if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
 import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles
+from libraries.basis_vectors import basis_angles, tomo_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT)
 
 
 def set_stages(basis_in, basis_out):
+    """IN preps basis_in; IN_2 analyzes for basis_out (mounted QWP-then-HWP,
+    same as TOM_1/OUT_2, so it needs tomo_angles, not basis_angles)."""
     tl.move_stage(HWP_IN,   basis_angles[basis_in.upper()][0],  COMPORT)
     tl.move_stage(QWP_IN,   basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_IN_2, basis_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_IN_2, basis_angles[basis_out.upper()][1], COMPORT)
+    tl.move_stage(HWP_IN_2, tomo_angles[basis_out.upper()][0],  COMPORT)
+    tl.move_stage(QWP_IN_2, tomo_angles[basis_out.upper()][1],  COMPORT)
 
 
 def set_stages_loop(basis_in, basis_out):
