@@ -19,8 +19,8 @@ import libraries.data_processing as dpl
 import libraries.plotting as cpl
 import libraries.tomography as tl
 from libraries.angle_menu import angle_menu
-from libraries.basis_vectors import process_state_angles
-from libraries.settings import (HWP_IN, QWP_IN, HWP_TOM_1, QWP_TOM_1,
+from libraries.basis_vectors import process_state_angles, basis_angles
+from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
 from libraries.notifier import notify
 from polarisation_tuner import polarisation_tuner
@@ -58,6 +58,24 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
            title=f"{plot_type} tomo complete",
            priority="high" if len(bases) > 2 else "default")
+
+
+def fibre_tomo(bases=tl.FULL_BASES):
+    """Tomo straight through the fibre: IN preps, IN_2 analyzes (forward/+
+    direction, same convention as basis_angles). No internal optics in
+    between and no unitary to fit — it's measured beforehand — so theory is
+    identity.
+    """
+    print(f"Performing fibre tomography for input states: {', '.join(bases)}")
+    with _get_powermeter() as pm:
+        res = tl.input_tomography(QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN, pm, COMPORT,
+                                  bases=bases, tomo_table=basis_angles)
+    tl.beep()
+    angles = {'title': 'Fibre'}
+    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
+                                    plot_type='Fibre', show_plot=True, identity=True)
+    notify(f"Fibre tomo done — fit: {fit:.4f}",
+           title="Fibre tomo complete", priority="default")
 
 
 def s_tomo(angles, path):
@@ -128,6 +146,7 @@ def main():
             "  F             — HVAD (4 input states)\n"
             "  6             — HVADRL (all 6 input states)\n"
             "  S             — s_j process state tomo\n"
+            "  FIB           — fibre tomo (IN preps, IN_2 analyzes, unitary = identity)\n"
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
             "  P             — replot saved data\n"
@@ -137,9 +156,13 @@ def main():
         if choice == 'T':
             polarisation_tuner()
             break
-        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'M', 'P'):
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, M, T, P")
+        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'FIB', 'M', 'P'):
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, FIB, M, T, P")
             continue
+
+        if choice == 'FIB':
+            fibre_tomo()
+            break
 
         angles = angle_menu()
         _p = input("Output path [1/2, default 2]: ").strip()

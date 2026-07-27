@@ -243,13 +243,16 @@ def _save_outputs(fig, data: dict, normalized_data: dict, angles: dict, graph_ti
 def plot_characterisation(data: dict, graph_title: str, angles: dict,
                           plot_type: str | None = None, note: str | None = None,
                           save_plot: bool = True, save_data: bool = True,
-                          show_plot: bool = True, path: int = 2) -> None:
+                          show_plot: bool = True, path: int = 2,
+                          identity: bool = False) -> None:
     """
     Plot measured vs theoretical probabilities for all input bases in data.
     Works for any number of bases — subplots scale in a 2-column layout.
     data: {input_basis: {output_state: (raw_val, raw_err)}}
+    identity: skip the internal-optics unitary and use U = I (e.g. a direct
+    fibre link between prep and analyzer, no PBS/mirror chain in between).
     """
-    U = _unitary_from_angles(angles, path=path)
+    U = np.eye(4, dtype=complex) if identity else _unitary_from_angles(angles, path=path)
     normalized_data = normalise_full_tomo_data(data)
     bases = list(normalized_data.keys())
 
