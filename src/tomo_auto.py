@@ -19,7 +19,7 @@ import libraries.data_processing as dpl
 import libraries.plotting as cpl
 import libraries.tomography as tl
 from libraries.angle_menu import angle_menu
-from libraries.basis_vectors import process_state_angles, basis_angles
+from libraries.basis_vectors import process_state_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
 from libraries.notifier import notify
@@ -61,15 +61,13 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
 
 
 def fibre_tomo(bases=tl.FULL_BASES):
-    """Tomo straight through the fibre: IN preps, IN_2 analyzes (forward/+
-    direction, same convention as basis_angles). No internal optics in
-    between and no unitary to fit — it's measured beforehand — so theory is
-    identity.
+    """Tomo straight through the fibre: IN preps, IN_2 analyzes. No internal
+    optics in between and no unitary to fit — it's measured beforehand — so
+    theory is identity.
     """
     print(f"Performing fibre tomography for input states: {', '.join(bases)}")
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN, pm, COMPORT,
-                                  bases=bases, tomo_table=basis_angles)
+        res = tl.input_tomography(QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN, pm, COMPORT, bases=bases)
     tl.beep()
     angles = {'title': 'Fibre'}
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
