@@ -11,7 +11,7 @@ if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
 import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
+from libraries.basis_vectors import basis_angles, tomo_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT)
 
@@ -27,14 +27,14 @@ def set_stages(basis_in, basis_out):
 
 def set_stages_loop(basis_in, basis_out):
     """IN_2 preps basis_in (basis_angles, QWP negated — its QWP is mounted
-    backwards). OUT_2 analyzes for basis_out; despite also being
-    HWP-then-QWP in loop mode, projecting basis_out -> H needs different
-    QWP angles than preparing H -> basis_out does, so it uses
-    loop_analyzer_angles, not basis_angles (verified via optics.py)."""
+    backwards). OUT_2 analyzes for basis_out using its normal analyzer
+    role (tomo_angles, QWP-then-HWP, no sign flip) — confirmed against
+    the bench-verified D->V rotation below, which only reproduces
+    correctly under OUT_2's default order/sign, not a loop-reversed one."""
     tl.move_stage(HWP_IN_2,  basis_angles[basis_in.upper()][0],  COMPORT)
     tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_OUT_2,  loop_analyzer_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_OUT_2,  loop_analyzer_angles[basis_out.upper()][1], COMPORT)
+    tl.move_stage(HWP_OUT_2,  tomo_angles[basis_out.upper()][0], COMPORT)
+    tl.move_stage(QWP_OUT_2,  tomo_angles[basis_out.upper()][1], COMPORT)
 
 
 # D->V output rotation isn't a basis state, so it isn't in basis_angles.

@@ -1,15 +1,23 @@
 """Regression check for fibre_tomo's loop-path angle tables.
 
-IN_2 (prep) and OUT_2 (analyze) are NOT the same table, despite both being
-HWP-then-QWP order in loop mode: preparing H->basis and projecting
-basis->H through the same plate order need different QWP angles (only
-coincide when the basis's own QWP angle is 0, i.e. H/V). This was the bug —
-OUT_2 used to reuse the negated basis_angles prep table, which is why real
-tomography on A/D/R/L loop inputs came out wrong (verified against
-optics.py Jones matrices below)."""
+IN_2 (prep) negates its QWP (backwards-mounted). OUT_2 (analyze) does NOT
+reverse plate order or negate anything in loop mode — it just uses its
+normal tomo_angles analyzer role, same as everywhere else it's used.
+
+This was arrived at the hard way: an earlier version gave OUT_2 its own
+"loop_analyzer_angles" table (HWP-then-QWP order, QWP negated), reasoning
+that the loop reverses beam direction through OUT_2's plates the same way
+it does through IN_2's. That table was internally consistent (it also
+reproduced the ideal MUB pattern) but wrong — it contradicted the one
+piece of real bench-confirmed ground truth available:
+polarisation_tuner._D_TO_V_OUT = (-22.5, -45), confirmed on the bench to
+rotate D to V. That value only reproduces D->V when applied AS-IS
+(no sign flip) in OUT_2's default QWP-then-HWP order — not under the
+reversed-order/negated-QWP model. See tests below for both directions of
+this check."""
 import numpy as np
 
-from libraries.basis_vectors import basis_angles, loop_analyzer_angles
+from libraries.basis_vectors import basis_angles, tomo_angles
 from libraries.optics import HWP, QWP
 from tomo_auto import fibre_tomo
 
@@ -22,6 +30,16 @@ def _prep_loop_table():
     return {b: (h, -q) for b, (h, q) in basis_angles.items()}
 
 
+def _prep(basis):
+    hwp, qwp = basis_angles[basis]
+    return QWP(qwp) @ HWP(hwp) @ H_KET
+
+
+def _apply_out2(hwp, qwp, state):
+    """OUT_2's default order: QWP encountered first, then HWP."""
+    return HWP(hwp) @ QWP(qwp) @ state
+
+
 def test_loop_prep_table_negates_qwp_only():
     table = _prep_loop_table()
     for basis, (hwp, qwp) in basis_angles.items():
@@ -29,45 +47,41 @@ def test_loop_prep_table_negates_qwp_only():
         assert table[basis][1] == -qwp
 
 
-def test_loop_analyzer_table_reproduces_mub_pattern():
-    """OUT_2's loop_analyzer_angles are commanded angles: OUT_2's QWP is
-    mounted backwards (same convention as IN_2's), so the physical QWP
-    rotation is -1 * the commanded value. Simulating that physical
-    rotation, applied HWP-then-QWP, must map every basis to H with
-    certainty and to its conjugate basis with zero probability
-    (identity/1/0.5 MUB pattern) — or the bench will see scrambled or
-    lost power exactly like the reported A/D/R/L symptoms."""
-    def prep(basis):
-        hwp, qwp = basis_angles[basis]
-        return QWP(qwp) @ HWP(hwp) @ H_KET
+def test_d_to_v_rotation_matches_bench_only_with_no_sign_flip():
+    """Locks in the bench-confirmed fact that anchors this whole design:
+    _D_TO_V_OUT applied as-is (no negation) in OUT_2's normal order maps
+    D -> V exactly. If this ever fails, OUT_2's mount convention has
+    changed and every angle table touching it needs re-deriving."""
+    D_TO_V_OUT = (-22.5, -45)
+    out = _apply_out2(*D_TO_V_OUT, _prep('D'))
+    probs = np.abs(out.flatten()) ** 2
+    assert np.isclose(probs[0], 0.0, atol=1e-6)  # H component
+    assert np.isclose(probs[1], 1.0, atol=1e-6)  # V component
 
-    def prob_h(basis, state):
-        command_hwp, command_qwp = loop_analyzer_angles[basis]
-        physical_hwp, physical_qwp = command_hwp, -command_qwp
-        out = QWP(physical_qwp) @ HWP(physical_hwp) @ state
-        return abs(out[0, 0]) ** 2
 
+def test_tomo_angles_reproduces_mub_pattern_at_out2():
+    """OUT_2's loop analyzer role is just tomo_angles, unchanged — must
+    map every basis to H with certainty and its conjugate to zero."""
     conjugate = {'H': 'V', 'V': 'H', 'A': 'D', 'D': 'A', 'R': 'L', 'L': 'R'}
     for basis in BASES:
-        state = prep(basis)
-        assert np.isclose(prob_h(basis, state), 1.0, atol=1e-6)
-        assert np.isclose(prob_h(conjugate[basis], state), 0.0, atol=1e-6)
+        state = _prep(basis)
+        hwp, qwp = tomo_angles[basis]
+        prob_self = np.abs(_apply_out2(hwp, qwp, state)[0, 0]) ** 2
+        hwp_c, qwp_c = tomo_angles[conjugate[basis]]
+        prob_conj = np.abs(_apply_out2(hwp_c, qwp_c, state)[0, 0]) ** 2
+        assert np.isclose(prob_self, 1.0, atol=1e-6)
+        assert np.isclose(prob_conj, 0.0, atol=1e-6)
 
 
-def test_loop_analyzer_table_differs_from_naive_negation_except_h_v():
-    """H/V happen to coincide with the old (wrong) negated-basis_angles
-    formula because their prep QWP is 0; A/D/R/L must not."""
-    naive = _prep_loop_table()
-    for basis in ('A', 'D', 'R', 'L'):
-        assert tuple(loop_analyzer_angles[basis]) != naive[basis]
-    for basis in ('H', 'V'):
-        assert tuple(loop_analyzer_angles[basis]) == naive[basis]
-
-
-def test_fibre_tomo_loop_kwarg_and_analyzer_table_threaded():
-    assert 'loop' in fibre_tomo.__code__.co_varnames
+def test_fibre_tomo_loop_uses_default_analyzer_table():
+    """loop=True must NOT override analyzer_table — OUT_2 uses the same
+    tomo_angles default as the non-loop case."""
     import inspect
     src = inspect.getsource(fibre_tomo)
-    assert 'analyzer_table=analyzer_table' in src, (
-        "loop mode must pass analyzer_table through to input_tomography, "
-        "not rely on the default tomo_angles for OUT_2")
+    assert 'analyzer_table = loop_table, None' in src, (
+        "loop mode must leave OUT_2 on the default tomo_angles analyzer "
+        "table, not a loop-specific override")
+
+
+def test_fibre_tomo_loop_kwarg_present():
+    assert 'loop' in fibre_tomo.__code__.co_varnames

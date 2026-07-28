@@ -2,7 +2,7 @@
 Functions associated with Tomography control / movement of stages.
 """
 
-from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
+from libraries.basis_vectors import basis_angles, tomo_angles
 from libraries.settings import (SIM_MODE, COMPORT,
                                 HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
                                 HWP_TOM_1, QWP_TOM_1)
