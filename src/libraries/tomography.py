@@ -48,11 +48,15 @@ def set_fixed_waveplates(angles, path=None):
 
 
 def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
-                     bases: tuple = HVAD_BASES, angle_table: dict | None = None) -> dict:
+                     bases: tuple = HVAD_BASES, angle_table: dict | None = None,
+                     analyzer_table: dict | None = None) -> dict:
     """
     Perform single_tomography for each input basis in bases.
     angle_table maps basis -> [hwp, qwp] prep angles (default: basis_angles;
     pass process_state_angles to tomo the s{j}_{N} states).
+    analyzer_table maps basis -> [hwp, qwp] analyzer angles (default:
+    tomo_angles; pass a different table when the analyzer pair's beam
+    order/mount isn't the usual QWP-then-HWP, e.g. the loop's OUT_2).
     Returns {basis: {output_state: (power, err)}}.
     """
     table = angle_table if angle_table is not None else basis_angles
@@ -61,17 +65,18 @@ def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
         print(f"Setting New Input Basis : |{basis}>")
         move_stage(hwp_in, table[basis][0], smc_port)
         move_stage(qwp_in, table[basis][1], smc_port)
-        res[basis] = single_tomography(qwp, hwp, powermeter, smc_port)
+        res[basis] = single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table=analyzer_table)
     return res
 
 
-def single_tomography(qwp, hwp, powermeter, smc_port) -> dict:
+def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | None = None) -> dict:
     """Measure all 6 output states (HVADRL) for the current input state."""
+    table = analyzer_table if analyzer_table is not None else tomo_angles
     res = {}
     for basis in FULL_BASES:
-        print(f"Measuring Output |{basis}>, HWP: {tomo_angles[basis][0]}, QWP: {tomo_angles[basis][1]}")
-        move_stage(hwp, tomo_angles[basis][0], smc_port)
-        move_stage(qwp, tomo_angles[basis][1], smc_port)
+        print(f"Measuring Output |{basis}>, HWP: {table[basis][0]}, QWP: {table[basis][1]}")
+        move_stage(hwp, table[basis][0], smc_port)
+        move_stage(qwp, table[basis][1], smc_port)
         time.sleep(0.1)
         pwr, err = powermeter.read(n=300)
         print(f"Power: {round(pwr * 1000, 2)} mW")

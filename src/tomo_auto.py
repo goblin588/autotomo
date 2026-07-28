@@ -60,16 +60,32 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
            priority="high" if len(bases) > 2 else "default")
 
 
-def fibre_tomo(bases=tl.FULL_BASES):
-    """Tomo straight through the fibre: IN preps, IN_2 analyzes. No internal
-    optics in between and no unitary to fit — it's measured beforehand — so
-    theory is identity.
+def fibre_tomo(bases=tl.FULL_BASES, loop=False):
+    """Tomo straight through the fibre. No internal optics in between and no
+    unitary to fit — it's measured beforehand — so theory is identity.
+
+    loop=False: IN preps, IN_2 analyzes (straight path).
+    loop=True:  IN_2 preps, OUT_2 analyzes (loop path). The loop reverses
+    the beam through both IN_2's and OUT_2's plate pairs, so both are
+    encountered HWP-then-QWP (like HWP_IN) instead of their usual
+    QWP-then-HWP — and both QWPs are mounted backwards for this direction
+    (see polarisation_tuner.set_stages_loop, which sets both pairs from
+    basis_angles with QWP negated). So both prep (IN_2) and analyze
+    (OUT_2) use the same negated basis_angles table, not tomo_angles.
     """
-    print(f"Performing fibre tomography for input states: {', '.join(bases)}")
+    print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
+    if loop:
+        loop_table = {b: (h, -q) for b, (h, q) in tl.basis_angles.items()}
+        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_OUT_2, HWP_OUT_2, HWP_IN_2, QWP_IN_2
+        prep_table, analyzer_table = loop_table, loop_table
+    else:
+        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN
+        prep_table, analyzer_table = None, None
     with _get_powermeter() as pm:
-        res = tl.input_tomography(QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN, pm, COMPORT, bases=bases)
+        res = tl.input_tomography(analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp, pm, COMPORT,
+                                  bases=bases, angle_table=prep_table, analyzer_table=analyzer_table)
     tl.beep()
-    angles = {'title': 'Fibre'}
+    angles = {'title': 'Fibre (loop)' if loop else 'Fibre'}
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
                                     plot_type='Fibre', show_plot=True, identity=True)
     notify(f"Fibre tomo done — fit: {fit:.4f}",
@@ -144,7 +160,7 @@ def main():
             "  F             — HVAD (4 input states)\n"
             "  6             — HVADRL (all 6 input states)\n"
             "  S             — s_j process state tomo\n"
-            "  FIB           — fibre tomo (IN preps, IN_2 analyzes, unitary = identity)\n"
+            "  FIB           — fibre tomo (straight or loop path, unitary = identity)\n"
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
             "  P             — replot saved data\n"
@@ -159,7 +175,8 @@ def main():
             continue
 
         if choice == 'FIB':
-            fibre_tomo()
+            loop = input("Loop path? [y/N]: ").strip().lower() == 'y'
+            fibre_tomo(loop=loop)
             break
 
         angles = angle_menu()
