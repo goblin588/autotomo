@@ -71,6 +71,24 @@ tomo_angles = {
     for name, (hwp, qwp) in basis_angles.items()
 }
 
+# OUT_2 loop-analyzer angles [HWP, QWP]: loop mode's OUT_2 is HWP-then-QWP
+# (like basis_angles), not QWP-then-HWP (like tomo_angles), so tomo_angles'
+# formula doesn't apply. It is NOT simply basis_angles with QWP negated
+# either (that's the prep/IN_2 formula) — mapping basis -> H through a
+# HWP-then-QWP pair needs a different QWP angle, verified numerically via
+# optics.py Jones matrices (QWP(q)@HWP(h)@basis ~ H for every entry below;
+# full 6x6 sweep reproduces the expected MUB probability pattern). HWP
+# angle is unchanged from basis_angles; QWP command already accounts for
+# OUT_2's backwards-mounted QWP (same convention as basis_angles negation).
+loop_analyzer_angles = {
+    "H": [0, 0],
+    "V": [45, 0],
+    "A": [-22.5, 0],
+    "D": [22.5, 0],
+    "R": [-22.5, -45],
+    "L": [22.5, 45],
+}
+
 
 process_state_angles = {
     # N = 3

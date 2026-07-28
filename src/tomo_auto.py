@@ -68,16 +68,18 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
     loop=True:  IN_2 preps, OUT_2 analyzes (loop path). The loop reverses
     the beam through both IN_2's and OUT_2's plate pairs, so both are
     encountered HWP-then-QWP (like HWP_IN) instead of their usual
-    QWP-then-HWP — and both QWPs are mounted backwards for this direction
-    (see polarisation_tuner.set_stages_loop, which sets both pairs from
-    basis_angles with QWP negated). So both prep (IN_2) and analyze
-    (OUT_2) use the same negated basis_angles table, not tomo_angles.
+    QWP-then-HWP. IN_2 preps with basis_angles' QWP negated (its QWP is
+    mounted backwards — see polarisation_tuner.set_stages_loop). OUT_2
+    analyzes with loop_analyzer_angles, NOT the same negated table —
+    mapping basis->H through a HWP-then-QWP pair needs different QWP
+    angles than mapping H->basis does (verified via optics.py; see
+    basis_vectors.loop_analyzer_angles for the derivation).
     """
     print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
     if loop:
         loop_table = {b: (h, -q) for b, (h, q) in tl.basis_angles.items()}
         analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_OUT_2, HWP_OUT_2, HWP_IN_2, QWP_IN_2
-        prep_table, analyzer_table = loop_table, loop_table
+        prep_table, analyzer_table = loop_table, tl.loop_analyzer_angles
     else:
         analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN
         prep_table, analyzer_table = None, None
