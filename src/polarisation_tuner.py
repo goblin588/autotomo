@@ -33,7 +33,10 @@ def set_stages_loop(basis_in, basis_out):
 
 
 # D->V output rotation isn't a basis state, so it isn't in basis_angles.
-_D_TO_V_OUT = (-22.5, 0)
+# IN_2/OUT_2 are mounted QWP-then-HWP: HWP(-22.5)@QWP(-45)@D == V exactly
+# (verified via optics.py) — the old (-22.5, 0) was missing the QWP term
+# and sent D to R instead.
+_D_TO_V_OUT = (-22.5, -45)
 
 
 def set_stages_to_v(basis_in, loop):
