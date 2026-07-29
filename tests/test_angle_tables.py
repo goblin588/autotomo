@@ -2,12 +2,14 @@
 conventions across both paths, cross-checked against optics.py Jones
 matrices. Confirmed physical model (see memory / CLAUDE.md history):
 
-  input prep      (IN, and IN_2 in loop mode): HWP -> QWP, normal sign
-  input analyze    (IN_2/TOM_1/OUT_2, non-loop): QWP -> HWP, normal sign
-  loop analyze     (OUT_2 in loop mode):        HWP -> QWP, QWP negated
+  input prep    (IN, and IN_2 in loop mode):     HWP -> QWP, normal sign
+  input analyze (IN_2/TOM_1/OUT_2, non-loop):    QWP -> HWP, normal sign
+  loop analyze  (OUT_2 in loop mode):            HWP -> QWP, NO sign flip
 
-Loop mode's QWP negation applies to both ends (IN_2 prep, OUT_2 analyze)
-because the loop physically reverses the beam through both plate pairs."""
+Loop mode reverses beam order through both ends (IN_2 prep, OUT_2
+analyze) — but only IN_2's QWP is actually backwards-mounted. OUT_2's is
+not; this only became testable once R/L (nonzero OUT_2 QWP) were checked
+directly, since H/V/A/D's OUT_2 QWP components are all 0 and sign-blind."""
 import numpy as np
 
 from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
@@ -42,11 +44,9 @@ def _analyze_straight(hwp, qwp, state):
 
 
 def _analyze_loop(command_hwp, command_qwp, state):
-    """Loop analyzer order: HWP first, then QWP. QWP command is negated
-    relative to the physical angle (backwards-mounted), same convention
-    as loop-mode IN_2 prep."""
-    physical_qwp = -command_qwp
-    return QWP(physical_qwp) @ HWP(command_hwp) @ state
+    """Loop analyzer order: HWP first, then QWP. Command IS the physical
+    angle directly -- OUT_2's QWP, unlike IN_2's, is not backwards-mounted."""
+    return QWP(command_qwp) @ HWP(command_hwp) @ state
 
 
 def test_basis_angles_prep_reproduces_basis_vectors():

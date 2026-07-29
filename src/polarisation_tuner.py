@@ -27,9 +27,9 @@ def set_stages(basis_in, basis_out):
 
 def set_stages_loop(basis_in, basis_out):
     """IN_2 preps basis_in (basis_angles, QWP negated — its QWP is mounted
-    backwards). OUT_2 sees the beam backwards too, exactly like IN_2
-    (HWP-then-QWP, QWP also negated) — NOT its usual non-loop QWP-then-HWP
-    analyzer role — so it uses loop_analyzer_angles, not tomo_angles."""
+    backwards). OUT_2 sees the beam backwards too (HWP-then-QWP, not its
+    usual non-loop QWP-then-HWP analyzer role) — but its QWP is NOT
+    negated, unlike IN_2's. Uses loop_analyzer_angles, not tomo_angles."""
     tl.move_stage(HWP_IN_2,  basis_angles[basis_in.upper()][0],  COMPORT)
     tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
     tl.move_stage(HWP_OUT_2,  loop_analyzer_angles[basis_out.upper()][0], COMPORT)
@@ -38,10 +38,10 @@ def set_stages_loop(basis_in, basis_out):
 
 # D->V output rotation isn't a basis state, so it isn't in basis_angles.
 # Non-loop: IN_2 is QWP-then-HWP, no sign flip — HWP(-22.5)@QWP(-45)@D==V.
-# Loop: OUT_2 is HWP-then-QWP with QWP negated (same convention as IN_2) —
-# a DIFFERENT command is needed for the same physical rotation:
-# QWP(-0)@HWP(-22.5)@D == V, i.e. QWP command 0, not -45 (confirmed on the
-# bench 2026-07-29 — the old shared -45 value doesn't work in loop mode).
+# Loop: OUT_2 is HWP-then-QWP, also no sign flip — a DIFFERENT command is
+# needed for the same physical rotation: QWP(0)@HWP(-22.5)@D == V, i.e.
+# QWP command 0, not -45 (confirmed on the bench 2026-07-29 — the old
+# shared -45 value doesn't work in loop mode).
 _D_TO_V_OUT = (-22.5, -45)
 _D_TO_V_OUT_LOOP = (-22.5, 0)
 
