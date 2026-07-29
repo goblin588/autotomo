@@ -65,20 +65,17 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
     unitary to fit — it's measured beforehand — so theory is identity.
 
     loop=False: IN preps, IN_2 analyzes (straight path).
-    loop=True:  IN_2 preps, OUT_2 analyzes (loop path). IN_2 preps with
-    basis_angles' QWP negated (its QWP is mounted backwards — see
-    polarisation_tuner.set_stages_loop). OUT_2 keeps its normal
-    QWP-then-HWP analyzer role and needs no sign flip — verified against
-    the bench-confirmed D->V rotation (polarisation_tuner._D_TO_V_OUT),
-    which only reproduces D->V under OUT_2's default order/sign, not a
-    reversed HWP-then-QWP order. So OUT_2 uses the default tomo_angles,
-    same as the non-loop case.
+    loop=True:  IN_2 preps, OUT_2 analyzes (loop path). Both plate pairs
+    see the beam backwards in loop mode (HWP-then-QWP, QWP mounted
+    backwards) — confirmed (user, 2026-07-29) that OUT_2 mirrors IN_2's
+    convention exactly, not its usual non-loop QWP-then-HWP analyzer role.
+    So OUT_2 uses basis_vectors.loop_analyzer_angles, not tomo_angles.
     """
     print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
     if loop:
         loop_table = {b: (h, -q) for b, (h, q) in tl.basis_angles.items()}
         analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_OUT_2, HWP_OUT_2, HWP_IN_2, QWP_IN_2
-        prep_table, analyzer_table = loop_table, None
+        prep_table, analyzer_table = loop_table, tl.loop_analyzer_angles
     else:
         analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN
         prep_table, analyzer_table = None, None

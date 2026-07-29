@@ -71,6 +71,24 @@ tomo_angles = {
     for name, (hwp, qwp) in basis_angles.items()
 }
 
+# OUT_2 loop-analyzer angles [HWP, QWP]: confirmed (user, 2026-07-29) that in
+# loop mode OUT_2 sees the beam backwards, exactly like IN_2 — HWP-then-QWP
+# order (not tomo_angles' QWP-then-HWP), with its QWP also mounted
+# backwards (command = -1 * physical, same convention as the negated
+# basis_angles used for IN_2's loop prep). Derived numerically via
+# optics.py: QWP(-qwp)@HWP(hwp)@basis ~ H for every entry below. HWP
+# unchanged from basis_angles; QWP is 0 wherever the prep QWP was 45 (and
+# vice versa for R/L, using the HWP-degenerate freedom of circular states
+# to keep HWP consistent with basis_angles' own value).
+loop_analyzer_angles = {
+    "H": [0, 0],
+    "V": [45, 0],
+    "A": [-22.5, 0],
+    "D": [22.5, 0],
+    "R": [-22.5, -45],
+    "L": [22.5, 45],
+}
+
 
 process_state_angles = {
     # N = 3

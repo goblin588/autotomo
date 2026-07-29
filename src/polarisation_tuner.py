@@ -11,7 +11,7 @@ if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
 import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles, tomo_angles
+from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT)
 
@@ -27,21 +27,23 @@ def set_stages(basis_in, basis_out):
 
 def set_stages_loop(basis_in, basis_out):
     """IN_2 preps basis_in (basis_angles, QWP negated — its QWP is mounted
-    backwards). OUT_2 analyzes for basis_out using its normal analyzer
-    role (tomo_angles, QWP-then-HWP, no sign flip) — confirmed against
-    the bench-verified D->V rotation below, which only reproduces
-    correctly under OUT_2's default order/sign, not a loop-reversed one."""
+    backwards). OUT_2 sees the beam backwards too, exactly like IN_2
+    (HWP-then-QWP, QWP also negated) — NOT its usual non-loop QWP-then-HWP
+    analyzer role — so it uses loop_analyzer_angles, not tomo_angles."""
     tl.move_stage(HWP_IN_2,  basis_angles[basis_in.upper()][0],  COMPORT)
     tl.move_stage(QWP_IN_2,  -basis_angles[basis_in.upper()][1],  COMPORT)
-    tl.move_stage(HWP_OUT_2,  tomo_angles[basis_out.upper()][0], COMPORT)
-    tl.move_stage(QWP_OUT_2,  tomo_angles[basis_out.upper()][1], COMPORT)
+    tl.move_stage(HWP_OUT_2,  loop_analyzer_angles[basis_out.upper()][0], COMPORT)
+    tl.move_stage(QWP_OUT_2,  loop_analyzer_angles[basis_out.upper()][1], COMPORT)
 
 
 # D->V output rotation isn't a basis state, so it isn't in basis_angles.
-# IN_2/OUT_2 are mounted QWP-then-HWP: HWP(-22.5)@QWP(-45)@D == V exactly
-# (verified via optics.py) — the old (-22.5, 0) was missing the QWP term
-# and sent D to R instead.
+# Non-loop: IN_2 is QWP-then-HWP, no sign flip — HWP(-22.5)@QWP(-45)@D==V.
+# Loop: OUT_2 is HWP-then-QWP with QWP negated (same convention as IN_2) —
+# a DIFFERENT command is needed for the same physical rotation:
+# QWP(-0)@HWP(-22.5)@D == V, i.e. QWP command 0, not -45 (confirmed on the
+# bench 2026-07-29 — the old shared -45 value doesn't work in loop mode).
 _D_TO_V_OUT = (-22.5, -45)
+_D_TO_V_OUT_LOOP = (-22.5, 0)
 
 
 def set_stages_to_v(basis_in, loop):
@@ -54,7 +56,7 @@ def set_stages_to_v(basis_in, loop):
         hwp_in, qwp_in = basis_angles['D']
         if loop:
             qwp_in = -qwp_in  # loop QWPs are mounted backwards
-        hwp_out, qwp_out = _D_TO_V_OUT
+        hwp_out, qwp_out = _D_TO_V_OUT_LOOP if loop else _D_TO_V_OUT
     else:
         raise ValueError(f"No V-rotation recipe for basis {basis_in}")
 
