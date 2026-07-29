@@ -85,8 +85,8 @@ loop_analyzer_angles = {
     "V": [45, 0],
     "A": [-22.5, 0],
     "D": [22.5, 0],
-    "R": [-22.5, -45],
-    "L": [22.5, 45],
+    "R": [0, 45],
+    "L": [0, -45],
 }
 
 
@@ -124,12 +124,27 @@ if __name__ == "__main__":
     # Scratch check: prep D then analyze with HWP(22.5)/QWP(0), print overlaps.
     import optics as ol
 
-    basis = "D"
+    # basis = "R"
+    input_state = basis_vectors_2["A"]
 
-    input_state = basis_vectors_2["H"]
 
-    out = ol.QWP(0)@ol.HWP(22.5)@ol.QWP(-basis_angles[basis][1])@ol.HWP(-basis_angles[basis][0])@input_state
-
+    out = ol.HWP(-22.5)@ol.QWP(45)@input_state
+    # out = ol.QWP(45)@ol.HWP(0)@input_state
+    print(out)
     for basis in basis_angles.keys():
         overlap = np.abs(np.conjugate(np.transpose(out)) @ basis_vectors_2[basis])**2
         print(f'{basis}: {overlap}')
+
+#PREP
+# L<-QWP(0)HWP(22.5)@H
+# R<-QWP(0)HWP(-22.5)@H
+
+# L<-HWP()QWP(45)@H
+# R<-HWP()QWP(-45)@H
+
+#MEASURE
+# H<-QWP(0)HWP(22.5)@R
+# H<-QWP(0)HWP(-22.5)@L
+
+# H<-HWP(0)QWP(22.5)@R
+# H<-HWP(0)QWP(-22.5)@L
