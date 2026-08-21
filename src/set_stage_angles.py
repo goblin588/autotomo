@@ -74,43 +74,38 @@ def _set_by_number():
 
 
 def main():
-    val = input("Input basis (H/V/A/D/R/L or s0_3 etc.), 'set' for stage pair menu, or 'num' for stage by number: ").strip().upper()
+    while True:
+        val = input("Input basis (H/V/A/D/R/L or s0_3 etc.), 'set' for stage pair menu, or 'num' for stage by number: ").strip().upper()
 
-    if val in _INPUT_ANGLES:
-        _move_pair(HWP_IN, QWP_IN, val, _INPUT_ANGLES)
-        tom = input("Tom basis (H/V/A/D/R/L): ").strip().upper()
-        if tom in tomo_angles:
-            _move_pair(HWP_TOM_DUMP, QWP_TOM_DUMP, tom, tomo_angles)
-        else:
-            print("Unrecognised tom basis — skipping.")
+        if val in _INPUT_ANGLES:
+            _move_pair(HWP_IN, QWP_IN, val, _INPUT_ANGLES)
 
-    elif val == 'SET':
-        print("Stage pairs:  in  |  in2  |  dump  |  tom1  |  out2  |  all")
-        while True:
-            choice = input("Which pair? (or Enter to finish): ").strip().lower()
-            if choice in ('', 'done'):
-                break
-            elif choice == 'all':
-                for hwp, qwp, label, angles in _PAIRS.values():
+        elif val == 'SET':
+            print("Stage pairs:  in  |  in2  |  dump  |  tom1  |  out2  |  all")
+            while True:
+                choice = input("Which pair? (or Enter to finish): ").strip().lower()
+                if choice in ('', 'done'):
+                    break
+                elif choice == 'all':
+                    for hwp, qwp, label, angles in _PAIRS.values():
+                        _set_pair_interactive(hwp, qwp, label, angles)
+                elif choice in _PAIRS:
+                    hwp, qwp, label, angles = _PAIRS[choice]
                     _set_pair_interactive(hwp, qwp, label, angles)
-            elif choice in _PAIRS:
-                hwp, qwp, label, angles = _PAIRS[choice]
-                _set_pair_interactive(hwp, qwp, label, angles)
-            else:
-                print("  Options: in, in2, dump, tom1, out2, all")
+                else:
+                    print("  Options: in, in2, dump, tom1, out2, all")
 
-    elif val == 'NUM':
-        while True:
-            _set_by_number()
-            again = input("  Set another? (y/n): ").strip().lower()
-            if again != 'y':
-                break
+        elif val == 'NUM':
+            while True:
+                _set_by_number()
+                again = input("  Set another? (y/n): ").strip().lower()
+                if again != 'y':
+                    break
 
-    else:
-        print("Unrecognised input.")
+        else:
+            print("Unrecognised input.")
 
-    tl.beep()
-
+        tl.beep()
 
 if __name__ == "__main__":
     try:
