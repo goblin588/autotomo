@@ -1,21 +1,22 @@
 """Regression check for fibre_tomo's loop-path angle tables.
 
 Confirmed (user, 2026-07-29): in loop mode, OUT_2 sees the beam backwards
-exactly like IN_2 does — HWP-then-QWP order, QWP also mounted backwards
-(command = -1 * physical). This is NOT OUT_2's usual non-loop analyzer
-role (QWP-then-HWP, tomo_angles, no sign flip) — that convention only
-applies when OUT_2 is used straight (as in run_tomo's path-2 analysis).
+like IN_2 does — HWP-then-QWP order (not its usual non-loop QWP-then-HWP,
+tomo_angles). But unlike IN_2, OUT_2's QWP is NOT mounted backwards —
+command is the physical angle directly.
 
-Getting here took two wrong turns, both worth remembering the shape of:
+Getting here took three wrong turns, worth remembering the shape of:
 1. Original bug: OUT_2 reused IN_2's prep table directly for analysis.
    Wrong because analyzing (basis->H) is the inverse of preparing
    (H->basis), not the same formula — they only coincided for H/V.
-2. Second wrong turn: assumed OUT_2 keeps its default QWP-then-HWP order
-   in loop mode (based on the D->V rotation reproducing correctly under
-   that order with the *shared* _D_TO_V_OUT constant). That was actually
-   testing the NON-loop code path's constant, not a loop-mode fact — the
-   loop and non-loop D->V rotations turned out to need different QWP
-   values under their genuinely different plate orders."""
+2. Assumed OUT_2 keeps its default QWP-then-HWP order in loop mode, based
+   on D->V reproducing correctly under that order with the *shared*
+   _D_TO_V_OUT constant — that was actually testing the non-loop code
+   path's constant, not a loop-mode fact.
+3. Assumed OUT_2's QWP is ALSO backwards-mounted (negated), by analogy
+   with IN_2. H/V/A/D all have QWP=0 for OUT_2 in loop mode, so this
+   never actually got tested until R/L (nonzero QWP) exposed it as wrong
+   — command is the physical angle as-is, no negation."""
 import numpy as np
 
 from libraries.basis_vectors import basis_angles, loop_analyzer_angles
@@ -37,10 +38,9 @@ def _prep(basis):
 
 
 def _apply_loop_out2(command_hwp, command_qwp, state):
-    """OUT_2 in loop mode: HWP-then-QWP order, QWP negated (backwards
-    mount), same convention as IN_2's prep."""
-    physical_hwp, physical_qwp = command_hwp, -command_qwp
-    return QWP(physical_qwp) @ HWP(physical_hwp) @ state
+    """OUT_2 in loop mode: HWP-then-QWP order. Command is the physical
+    angle directly -- OUT_2's QWP is not backwards-mounted (unlike IN_2's)."""
+    return QWP(command_qwp) @ HWP(command_hwp) @ state
 
 
 def test_loop_prep_table_negates_qwp_only():

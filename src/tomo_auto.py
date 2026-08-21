@@ -66,10 +66,10 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
 
     loop=False: IN preps, IN_2 analyzes (straight path).
     loop=True:  IN_2 preps, OUT_2 analyzes (loop path). Both plate pairs
-    see the beam backwards in loop mode (HWP-then-QWP, QWP mounted
-    backwards) — confirmed (user, 2026-07-29) that OUT_2 mirrors IN_2's
-    convention exactly, not its usual non-loop QWP-then-HWP analyzer role.
-    So OUT_2 uses basis_vectors.loop_analyzer_angles, not tomo_angles.
+    see the beam backwards in loop mode (HWP-then-QWP, not OUT_2's usual
+    non-loop QWP-then-HWP analyzer role) — confirmed (user, 2026-07-29).
+    Only IN_2's QWP is mounted backwards, though; OUT_2's is not. So OUT_2
+    uses basis_vectors.loop_analyzer_angles, not tomo_angles.
     """
     print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
     if loop:

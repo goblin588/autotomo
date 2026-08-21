@@ -72,21 +72,20 @@ tomo_angles = {
 }
 
 # OUT_2 loop-analyzer angles [HWP, QWP]: confirmed (user, 2026-07-29) that in
-# loop mode OUT_2 sees the beam backwards, exactly like IN_2 — HWP-then-QWP
-# order (not tomo_angles' QWP-then-HWP), with its QWP also mounted
-# backwards (command = -1 * physical, same convention as the negated
-# basis_angles used for IN_2's loop prep). Derived numerically via
-# optics.py: QWP(-qwp)@HWP(hwp)@basis ~ H for every entry below. HWP
-# unchanged from basis_angles; QWP is 0 wherever the prep QWP was 45 (and
-# vice versa for R/L, using the HWP-degenerate freedom of circular states
-# to keep HWP consistent with basis_angles' own value).
+# loop mode OUT_2 sees the beam backwards, like IN_2 — HWP-then-QWP order
+# (not tomo_angles' QWP-then-HWP) — but UNLIKE IN_2, OUT_2's QWP is NOT
+# mounted backwards: command = physical directly, no sign flip. (H/V/A/D
+# all happen to have QWP=0 here, which is sign-invariant — that's why this
+# was only actually tested, and corrected, once R/L exposed it.) HWP=0
+# works for both R and L (circular states are HWP-order-degenerate); QWP
+# is +45 for R, -45 for L, bench-confirmed.
 loop_analyzer_angles = {
     "H": [0, 0],
     "V": [45, 0],
     "A": [-22.5, 0],
     "D": [22.5, 0],
-    "R": [-22.5, -45],
-    "L": [22.5, 45],
+    "R": [0, 45],
+    "L": [0, -45],
 }
 
 
@@ -124,12 +123,27 @@ if __name__ == "__main__":
     # Scratch check: prep D then analyze with HWP(22.5)/QWP(0), print overlaps.
     import optics as ol
 
-    basis = "D"
+    # basis = "R"
+    input_state = basis_vectors_2["A"]
 
-    input_state = basis_vectors_2["H"]
 
-    out = ol.QWP(0)@ol.HWP(22.5)@ol.QWP(-basis_angles[basis][1])@ol.HWP(-basis_angles[basis][0])@input_state
-
+    out = ol.HWP(-22.5)@ol.QWP(45)@input_state
+    # out = ol.QWP(45)@ol.HWP(0)@input_state
+    print(out)
     for basis in basis_angles.keys():
         overlap = np.abs(np.conjugate(np.transpose(out)) @ basis_vectors_2[basis])**2
         print(f'{basis}: {overlap}')
+
+#PREP
+# L<-QWP(0)HWP(22.5)@H
+# R<-QWP(0)HWP(-22.5)@H
+
+# L<-HWP()QWP(45)@H
+# R<-HWP()QWP(-45)@H
+
+#MEASURE
+# H<-QWP(0)HWP(22.5)@R
+# H<-QWP(0)HWP(-22.5)@L
+
+# H<-HWP(0)QWP(22.5)@R
+# H<-HWP(0)QWP(-22.5)@L
