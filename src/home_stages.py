@@ -42,15 +42,22 @@ _SCAN_IDS = range(1, 32)
 
 def _detect_stages():
     """Probe every address in _SCAN_IDS on COMPORT. Returns {sid: state}
-    for every address that responds. Single-shot (no retry) per address —
-    an unused address should time out once, not ten times."""
+    for every address that responds.
+
+    Uses get_status()'s default retry (10), not a fast single-shot probe:
+    these are daisy-chained over RS-485 IN/OUT, not a shared bus, so a
+    command to a box N hops away is relayed through every box ahead of it
+    (Newport's manual: ~10ms for the first controller, ~16ms+ for each one
+    after — real cabling can push this higher). A single 50ms attempt isn't
+    reliable margin for that relay latency; cutting retries here previously
+    caused only the first box in the chain to be detected."""
     import interfaces.smc100 as smc
     found = {}
     with smc.SMC100Connection(port=COMPORT) as conn:
         for sid in _SCAN_IDS:
             stage = smc.SMC100Stage(conn, smcID=sid)
             try:
-                _, state = stage.get_status(retry=1)
+                _, state = stage.get_status()
                 found[sid] = state
             except Exception:
                 continue
