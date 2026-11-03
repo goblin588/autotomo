@@ -21,16 +21,9 @@ from libraries.settings import (Waveplate, COMPORT, SIM_MODE,
 
 ANGLE_STEP = 2   # degrees between sweep points
 N_READS = 10     # power-meter reads averaged per angle; also reused for the
-                 # single I0/reference reads below (ponytail: one noisy
-                 # reading each rather than a dedicated higher-N constant —
-                 # bump N_READS, or add a separate constant, if those look
-                 # noisy in practice)
-
-# sin^2(delta/2) is 1 for a HWP (delta=pi) and 0.5 for a QWP (delta=pi/2);
-# the crossed-polarizer null is ~0 for either type (that's how the axis is
-# found), so only the peak, relative to an independent I0 reference with no
-# polarization selection, carries the retardance/type information.
-HWP_QWP_RATIO_THRESHOLD = 0.75  # midpoint between ideal HWP (1.0) and QWP (0.5)
+                 # single reference read below (ponytail: one noisy reading
+                 # rather than a dedicated higher-N constant — bump N_READS
+                 # if that looks noisy in practice)
 
 # Already-calibrated QWPs available to use as the fast/slow-axis reference.
 _QWP_REFS: dict[int, Waveplate] = {
@@ -63,19 +56,17 @@ def fit_optical_axis(angles_deg: np.ndarray, power: np.ndarray) -> float:
 
 
 def fit_peak_power(angles_deg: np.ndarray, power: np.ndarray) -> float:
-    """Return the fitted peak transmitted power (max of the fitted sinusoid),
-    used to classify HWP vs QWP against an independent I0 reference."""
+    """Return the fitted peak transmitted power (max of the fitted sinusoid).
+
+    For a QWP this peak is I0/2 (sin^2(pi/4)), where I0 is the power with no
+    polarization selection at all — so this peak doubles as an implicit I0
+    estimate for resolve_fast_axis below, with no separate reference
+    measurement needed."""
     i_mean, a, b = _fit_sinusoid(angles_deg, power)
     return i_mean + float(np.hypot(a, b))
 
 
-def classify_waveplate(peak_W: float, i0_W: float) -> str:
-    """Classify as 'HWP' or 'QWP' from the peak/I0 ratio (see
-    HWP_QWP_RATIO_THRESHOLD above)."""
-    return 'HWP' if peak_W / i0_W > HWP_QWP_RATIO_THRESHOLD else 'QWP'
-
-
-def resolve_fast_axis(theta0: float, i0_W: float, pm) -> float | None:
+def resolve_fast_axis(theta0: float, sweep_peak_W: float, pm) -> float | None:
     """Resolve whether theta0 is the test plate's fast or slow axis.
 
     Call only once the test plate has been rotated to theta0+45 deg
@@ -83,16 +74,18 @@ def resolve_fast_axis(theta0: float, i0_W: float, pm) -> float | None:
     QWP to insert after the test plate, before the analyzer, then moves it
     to lab angle 45 deg. With the reference's fast axis there, a test QWP
     whose null axis (theta0) IS its fast axis converts the circular light
-    back to pure V (full power through the crossed analyzer); if theta0 is
-    the slow axis instead, it converts to pure H (zero power).
+    back to pure V (full power I0 through the crossed analyzer); if theta0
+    is the slow axis instead, it converts to pure H (zero power). sweep_peak_W
+    (I0/2, see fit_peak_power) is the midpoint between those two outcomes, so
+    it's the threshold — no separate I0 reference measurement needed.
 
     Returns the resolved fast-axis angle, or None if the user skips/enters
     an unrecognised reference stage.
     """
     ref_id = input(
-        "  QWP detected. To resolve fast vs slow axis (R/L), insert an "
-        "already-calibrated reference QWP after the test plate, before the "
-        "analyzer.\n  Reference QWP stage ID (blank to skip): "
+        "  To resolve fast vs slow axis (R/L), insert an already-calibrated "
+        "reference QWP after the test plate, before the analyzer.\n"
+        "  Reference QWP stage ID (blank to skip): "
     ).strip()
     if not ref_id:
         return None
@@ -105,10 +98,10 @@ def resolve_fast_axis(theta0: float, i0_W: float, pm) -> float | None:
     tl.move_stage(ref, 45.0, COMPORT)
     input("  Reference QWP set to 45°. Press Enter once it is inserted in the beam: ")
     power, _ = pm.read(n=N_READS)
-    ratio = power / i0_W
-    is_fast = ratio > 0.5
-    print(f"  Reference read: {power * 1000:.4f} mW ({ratio * 100:.1f}% of I0) "
-          f"-> null axis is the {'fast' if is_fast else 'slow'} axis")
+    is_fast = power > sweep_peak_W
+    print(f"  Reference read: {power * 1000:.4f} mW (sweep peak was "
+          f"{sweep_peak_W * 1000:.4f} mW) -> null axis is the "
+          f"{'fast' if is_fast else 'slow'} axis")
     return theta0 if is_fast else theta0 + 90
 
 
@@ -161,28 +154,22 @@ def main() -> None:
     print("Setup required: H-polarizer -> waveplate under test -> V-polarizer (crossed) -> power meter")
     stage_id = int(input("Stage ID of waveplate under test: ").strip())
     waveplate = Waveplate(stage_id, oa=0)
+    plate_type = input("Is this a HWP or QWP? [h/q]: ").strip().upper()
+    plate_type = 'QWP' if plate_type.startswith('Q') else 'HWP'
 
     fast_axis = None
     with _get_powermeter() as pm:
-        input("Set the analyzer parallel to the input polarizer (not crossed) "
-              "to measure the reference power I0. Press Enter when ready: ")
-        i0, _ = pm.read(n=N_READS)
-        print(f"  I0 = {i0 * 1000:.4f} mW")
-
-        input("Set the analyzer back to crossed. Press Enter when ready: ")
         print(f"Sweeping stage {stage_id} from 0° to 360° in {ANGLE_STEP}° steps "
               f"({N_READS} reads/angle)...")
         angles, power, err = sweep(waveplate, pm)
 
         theta0 = fit_optical_axis(angles, power)
-        peak = fit_peak_power(angles, power)
-        plate_type = classify_waveplate(peak, i0)
         print(f"\nFitted optical axis: {theta0:.2f}° (mod 90°)")
-        print(f"Peak/I0 = {peak / i0:.3f} -> classified as {plate_type}")
 
         if plate_type == 'QWP':
+            peak = fit_peak_power(angles, power)
             tl.move_stage(waveplate, theta0 + 45, COMPORT)
-            fast_axis = resolve_fast_axis(theta0, i0, pm)
+            fast_axis = resolve_fast_axis(theta0, peak, pm)
     tl.beep()
 
     print(f"Equivalent axes in [0, 360): "
