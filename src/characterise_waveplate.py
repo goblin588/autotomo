@@ -7,6 +7,7 @@ Run with AUTOTOMO_SIM=1 or --sim for mock hardware.
 """
 import os
 import sys
+import time
 
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
@@ -19,11 +20,13 @@ from libraries.plotting import _make_directory_name, createDir
 from libraries.settings import (Waveplate, COMPORT, SIM_MODE,
                                  QWP_IN, QWP_TOM_DUMP, QWP_IN_2, QWP_TOM_1, QWP_OUT_2)
 
-ANGLE_STEP = 2   # degrees between sweep points
-N_READS = 10     # power-meter reads averaged per angle; also reused for the
-                 # single reference read below (ponytail: one noisy reading
-                 # rather than a dedicated higher-N constant — bump N_READS
-                 # if that looks noisy in practice)
+ANGLE_STEP = 1    # degrees between sweep points
+SETTLE_S = 0.1    # settle time after each move, before reading power
+                  # (matches tomography.py's single_tomography convention)
+N_READS = 10      # power-meter reads averaged per angle; also reused for the
+                  # single reference read below (ponytail: one noisy reading
+                  # rather than a dedicated higher-N constant — bump N_READS
+                  # if that looks noisy in practice)
 
 # Already-calibrated QWPs available to use as the fast/slow-axis reference.
 _QWP_REFS: dict[int, Waveplate] = {
@@ -113,6 +116,7 @@ def sweep(waveplate: Waveplate, pm) -> tuple[np.ndarray, np.ndarray, np.ndarray]
     err = np.zeros_like(angles)
     for i, angle in enumerate(angles):
         tl.move_stage(waveplate, angle, COMPORT)
+        time.sleep(SETTLE_S)
         p, e = pm.read(n=N_READS)
         power[i] = p
         err[i] = e
