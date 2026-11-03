@@ -5,7 +5,7 @@ Functions associated with Tomography control / movement of stages.
 from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
 from libraries.settings import (SIM_MODE, COMPORT,
                                 HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
-                                HWP_TOM_1, QWP_TOM_1)
+                                HWP_TOM_1, QWP_TOM_1, HWP_1, QWP_1, HWP_12, QWP_12)
 import time
 
 if SIM_MODE:
@@ -38,6 +38,10 @@ def set_fixed_waveplates(angles, path=None):
         ('qf2',  'QWP_OUT_2', QWP_OUT_2),
         ('hf1',  'HWP_TOM_1', HWP_TOM_1),
         ('qf1',  'QWP_TOM_1', QWP_TOM_1),
+        ('h1',   'HWP_1',     HWP_1),
+        ('q1',   'QWP_1',     QWP_1),
+        ('h2',   'HWP_12',    HWP_12),
+        ('q2',   'QWP_12',    QWP_12),
     ]
     skip = {1: ('hf1', 'qf1'), 2: ('hf2', 'qf2')}.get(path, ())
     for key, name, stage in plates:
