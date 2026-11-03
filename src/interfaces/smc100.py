@@ -350,13 +350,13 @@ class SMC100Stage(SMC100Connection):
         self.wait_states(STATE_NOT_REFERENCED_FROM_CONFIGURATION)
         self.home(waitStop=True)
 
-    def get_status(self, silent=True, retry=10):
+    def get_status(self, silent=True):
         """
         Executes TS? and returns the the error code as integer and state as string
         as specified on pages 64 - 65 of the manual.
         """
 
-        resp = self.sendcmd(command='TS', argument='?', expect_response=True, retry=retry)
+        resp = self.sendcmd(command='TS', argument='?', expect_response=True, retry=10)
         errors = int(resp[0:4], 16)
         state = resp[4:]
 

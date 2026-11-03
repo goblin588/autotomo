@@ -1,5 +1,5 @@
 """
-Detect all SMC100 stages connected on COMPORT and home as needed.
+Check homing status of all known stages and home as needed.
 """
 import os
 import sys
@@ -14,10 +14,7 @@ from libraries.settings import (
     SIM_MODE, COMPORT
 )
 
-# Name lookup for known stages, display-only — detection no longer depends
-# on this list, so a newly wired-up stage shows up as 'unknown' instead of
-# being invisible to this script.
-_STAGE_NAMES = {
+ALL_STAGES = {
     HWP_IN.ID:       'HWP_IN',
     QWP_IN.ID:       'QWP_IN',
     HWP_IN_2.ID:     'HWP_IN_2',
@@ -36,32 +33,13 @@ _STAGE_NAMES = {
 
 _NOT_REFERENCED = {'0A', '0B', '0C', '0D', '0E', '0F', '10', '11'}
 
-# SMC100/ESP controllers on the same RS-485 bus are addressed 1-31.
-_SCAN_IDS = range(1, 32)
 
-
-def _detect_stages():
-    """Probe every address in _SCAN_IDS on COMPORT. Returns {sid: state}
-    for every address that responds.
-
-    Uses get_status()'s default retry (10), not a fast single-shot probe:
-    these are daisy-chained over RS-485 IN/OUT, not a shared bus, so a
-    command to a box N hops away is relayed through every box ahead of it
-    (Newport's manual: ~10ms for the first controller, ~16ms+ for each one
-    after — real cabling can push this higher). A single 50ms attempt isn't
-    reliable margin for that relay latency; cutting retries here previously
-    caused only the first box in the chain to be detected."""
+def _get_state(sid):
     import interfaces.smc100 as smc
-    found = {}
     with smc.SMC100Connection(port=COMPORT) as conn:
-        for sid in _SCAN_IDS:
-            stage = smc.SMC100Stage(conn, smcID=sid)
-            try:
-                _, state = stage.get_status()
-                found[sid] = state
-            except Exception:
-                continue
-    return found
+        stage = smc.SMC100Stage(conn, smcID=sid)
+        _, state = stage.get_status()
+    return state
 
 
 def _home_stage(sid):
@@ -75,29 +53,20 @@ def _home_stage(sid):
 
 def main():
     if SIM_MODE:
-        print("[SIM MODE] No hardware to scan — using known stages from settings.py")
-        detected = {sid: '0A' for sid in _STAGE_NAMES}
+        print("[SIM MODE]")
+        unhomed = list(ALL_STAGES.keys())
     else:
-        print(f"Scanning {COMPORT} for connected stages...")
-        detected = _detect_stages()
-
-    if not detected:
-        print("No stages detected.")
-        return
-
-    print(f"\nFound {len(detected)} stage(s):")
-    for sid in detected:
-        print(f"  {sid}: {_STAGE_NAMES.get(sid, 'unknown')}")
-
-    unhomed = [sid for sid, state in detected.items() if state in _NOT_REFERENCED]
+        print("Checking stage homing status...")
+        unhomed = [sid for sid, name in ALL_STAGES.items()
+                   if _get_state(sid) in _NOT_REFERENCED]
 
     if not unhomed:
-        print("\nAll detected stages are homed.")
+        print("All stages are homed.")
         return
 
     print("\nStages not homed:")
     for sid in unhomed:
-        print(f"  {sid}: {_STAGE_NAMES.get(sid, 'unknown')}")
+        print(f"  {sid}: {ALL_STAGES[sid]}")
 
     choice = input("\nEnter stage number to home, or press Enter to home all: ").strip()
 
@@ -109,13 +78,13 @@ def main():
         except ValueError:
             print("Invalid input.")
             return
-        if sid not in detected:
-            print(f"Stage {sid} not detected.")
+        if sid not in ALL_STAGES:
+            print(f"Stage {sid} not recognised.")
             return
         to_home = [sid]
 
     for sid in to_home:
-        name = _STAGE_NAMES.get(sid, 'unknown')
+        name = ALL_STAGES[sid]
         print(f"  Homing stage {sid} ({name})...")
         if not SIM_MODE:
             _home_stage(sid)
