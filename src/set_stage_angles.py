@@ -37,18 +37,36 @@ _STAGE_MAP: dict[int, Waveplate] = {
     for wp in (hwp, qwp)
 } | {wp.ID: wp for wp in _EXTRA_STAGES}
 
+# Single-stage name aliases, e.g. 'hin2' / 'qin2' for _PAIRS['in2'], plus the
+# fixed interferometer plates. Each entry carries the angle dict/index needed
+# to look up a basis for that half of a pair; extra stages get None/None
+# since they're fixed, not basis-driven (see comment above _EXTRA_STAGES).
+_SINGLE_STAGES: dict[str, tuple[Waveplate, dict | None, int | None]] = {
+    f"h{key}": (hwp, angles, 0) for key, (hwp, qwp, _, angles) in _PAIRS.items()
+} | {
+    f"q{key}": (qwp, angles, 1) for key, (hwp, qwp, _, angles) in _PAIRS.items()
+} | {
+    'h1': (HWP_1, None, None), 'q1': (QWP_1, None, None),
+    'h12': (HWP_12, None, None), 'q12': (QWP_12, None, None),
+}
 
-def _move_pair(hwp, qwp, basis, angles=basis_angles):
+# Same lookup, keyed by stage ID instead of name, for addressing by number.
+_STAGE_INFO_BY_ID: dict[int, tuple[dict | None, int | None]] = {
+    wp.ID: (angles, idx) for wp, angles, idx in _SINGLE_STAGES.values()
+}
+
+
+def _move_pair(hwp, qwp, basis, angles):
     tl.move_stage(hwp, angles[basis][0], COMPORT)
     tl.move_stage(qwp, angles[basis][1], COMPORT)
     print(f"  Set to |{basis}⟩  (HWP={angles[basis][0]:.2f}°, QWP={angles[basis][1]:.2f}°)")
 
 
 def _set_pair_interactive(hwp, qwp, label, angles):
-    val = input(f"  {label}\n  Basis (H/V/A/D/R/L, or s0_3 etc. for 'in') or 'manual': ").strip().upper()
+    val = input(f"  {label}\n  Basis (H/V/A/D/R/L, or s0_3 etc.) or 'set' for individual angles: ").strip().upper()
     if val in angles:
         _move_pair(hwp, qwp, val, angles)
-    elif val == 'MANUAL':
+    elif val == 'SET':
         hwp_angle = float(input("    HWP angle (deg): "))
         qwp_angle = float(input("    QWP angle (deg): "))
         tl.move_stage(hwp, hwp_angle, COMPORT)
@@ -58,57 +76,53 @@ def _set_pair_interactive(hwp, qwp, label, angles):
         print("  Unrecognised — skipping.")
 
 
-def _set_by_number():
-    """Move a single stage by its ID number, applying OA if the stage is known."""
-    stage_id = input("  Stage number: ").strip()
-    try:
-        stage_id = int(stage_id)
-    except ValueError:
-        print("  Invalid stage number.")
+def _set_single_interactive(wp, angles, idx, label):
+    prompt = f"  {label}  Basis (H/V/A/D/R/L) or angle (deg): " if angles else f"  {label}  Angle (deg): "
+    val = input(prompt).strip().upper()
+    if angles and val in angles:
+        angle = angles[val][idx]
+        tl.move_stage(wp, angle, COMPORT)
+        print(f"  Set to |{val}⟩ → {angle:.2f}°")
         return
-    angle = input("  Angle (deg): ").strip()
     try:
-        angle = float(angle)
+        angle = float(val)
     except ValueError:
-        print("  Invalid angle.")
+        print("  Unrecognised — skipping.")
         return
-    wp = _STAGE_MAP.get(stage_id, Waveplate(stage_id, 0))
     tl.move_stage(wp, angle, COMPORT)
     oa_note = f" (OA={wp.OA:.2f}° applied → {angle + wp.OA:.2f}°)" if wp.OA else ""
-    print(f"  Stage {stage_id} → {angle:.2f}°{oa_note}")
+    print(f"  Set to {angle:.2f}°{oa_note}")
 
 
 def main():
+    prompt = (
+        f"Pair ({', '.join(_PAIRS)}, all), stage name ({', '.join(_SINGLE_STAGES)}), "
+        "or stage number ('done' to quit): "
+    )
     while True:
-        val = input("Input basis (H/V/A/D/R/L or s0_3 etc.), 'set' for stage pair menu, or 'num' for stage by number: ").strip().upper()
+        val = input(prompt).strip().lower()
 
-        if val in _INPUT_ANGLES:
-            _move_pair(HWP_IN, QWP_IN, val, _INPUT_ANGLES)
+        if val in ('', 'done'):
+            break
 
-        elif val == 'SET':
-            print("Stage pairs:  in  |  in2  |  dump  |  tom1  |  out2  |  all")
-            while True:
-                choice = input("Which pair? (or Enter to finish): ").strip().lower()
-                if choice in ('', 'done'):
-                    break
-                elif choice == 'all':
-                    for hwp, qwp, label, angles in _PAIRS.values():
-                        _set_pair_interactive(hwp, qwp, label, angles)
-                elif choice in _PAIRS:
-                    hwp, qwp, label, angles = _PAIRS[choice]
-                    _set_pair_interactive(hwp, qwp, label, angles)
-                else:
-                    print("  Options: in, in2, dump, tom1, out2, all")
-
-        elif val == 'NUM':
-            while True:
-                _set_by_number()
-                again = input("  Set another? (y/n): ").strip().lower()
-                if again != 'y':
-                    break
-
+        if val == 'all':
+            for hwp, qwp, label, angles in _PAIRS.values():
+                _set_pair_interactive(hwp, qwp, label, angles)
+        elif val in _PAIRS:
+            hwp, qwp, label, angles = _PAIRS[val]
+            _set_pair_interactive(hwp, qwp, label, angles)
+        elif val in _SINGLE_STAGES:
+            wp, angles, idx = _SINGLE_STAGES[val]
+            _set_single_interactive(wp, angles, idx, val)
         else:
-            print("Unrecognised input.")
+            try:
+                stage_id = int(val)
+            except ValueError:
+                print("  Unrecognised — skipping.")
+                continue
+            wp = _STAGE_MAP.get(stage_id, Waveplate(stage_id, 0))
+            angles, idx = _STAGE_INFO_BY_ID.get(stage_id, (None, None))
+            _set_single_interactive(wp, angles, idx, f"Stage {stage_id}")
 
         tl.beep()
 
