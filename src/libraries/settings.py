@@ -33,10 +33,10 @@ qwp_out_2_oa = 12.5
 
 # Interferometer plates (realise the h1/q1/h2/q2 angles in getUnitary,
 # previously fixed/manual, now motorised). OA not yet characterised.
-hwp_1_oa = 0
-qwp_1_oa = 0
-hwp_12_oa = 0
-qwp_12_oa = 0
+hwp_1_oa = 84.31
+qwp_1_oa = 353.3
+hwp_12_oa = 16.28
+qwp_12_oa = 170.63
 
 
 # STAGES
