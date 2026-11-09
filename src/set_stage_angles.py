@@ -96,8 +96,9 @@ def _set_single_interactive(wp, angles, idx, label):
 
 def main():
     prompt = (
-        f"Pair ({', '.join(_PAIRS)}, all), stage name ({', '.join(_SINGLE_STAGES)}), "
-        "or stage number ('done' to quit): "
+        "Pair (eg. in), 'all', stage name (eg. h1), "
+        f"stage number ({min(_STAGE_MAP)}-{max(_STAGE_MAP)}), "
+        "'0' (zero all waveplates to their OA), or 'done' to quit: "
     )
     while True:
         val = input(prompt).strip().lower()
@@ -105,7 +106,11 @@ def main():
         if val in ('', 'done'):
             break
 
-        if val == 'all':
+        if val == '0':
+            for wp in _STAGE_MAP.values():
+                tl.move_stage(wp, 0, COMPORT)
+                print(f"  Stage {wp.ID} set to 0° (OA={wp.OA:.2f}°)")
+        elif val == 'all':
             for hwp, qwp, label, angles in _PAIRS.values():
                 _set_pair_interactive(hwp, qwp, label, angles)
         elif val in _PAIRS:
