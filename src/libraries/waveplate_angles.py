@@ -1,6 +1,20 @@
 import numpy as np
 
-U_3_angles = {
+
+def _reduce_angles(angles: dict) -> dict:
+    """Reduce HWP angles mod 90 and QWP angles mod 180; leave mirrors (m*) untouched."""
+    reduced = {}
+    for key, value in angles.items():
+        if key.startswith("h"):
+            reduced[key] = value % 90
+        elif key.startswith("q"):
+            reduced[key] = value % 180
+        else:
+            reduced[key] = value
+    return reduced
+
+
+U_3_angles = _reduce_angles({
     "h1": np.rad2deg(1.57158),
     "q1": np.rad2deg(0.0017101),
     "h2": np.rad2deg(3.99667),
@@ -14,10 +28,10 @@ U_3_angles = {
     "m1": 3.16,
     "m2": 3.77,
     "m3": 3.74,
-}
+})
 
-    
-U_4_angles = {
+
+U_4_angles = _reduce_angles({
     "h1": np.rad2deg(3.144),
     "q1": np.rad2deg(0.0),
     "h2": np.rad2deg(0.845031),
@@ -31,9 +45,9 @@ U_4_angles = {
     "m1": 3.16,
     "m2": 3.77,
     "m3": 3.74
-}
+})
 
-U_5_angles = {
+U_5_angles = _reduce_angles({
     "h1": np.rad2deg(1.5707),
     "q1": np.rad2deg(1.57092),
     "h2": np.rad2deg(2.48831),
@@ -47,9 +61,9 @@ U_5_angles = {
     "m1": 3.16,
     "m2": 3.77,
     "m3": 3.74,
-}
+})
 
-U_6_angles = {
+U_6_angles = _reduce_angles({
     "h1": np.rad2deg(1.57076),
     "q1": np.rad2deg(4.71234),
     "h2": np.rad2deg(5.99134),
@@ -63,7 +77,7 @@ U_6_angles = {
     "m1": 3.16,
     "m2": 3.77,
     "m3": 3.74
-}
+})
 
 unitaries_angles = {
     '3': U_3_angles,
