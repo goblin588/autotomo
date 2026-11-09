@@ -8,6 +8,7 @@ from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                  HWP_TOM_1, QWP_TOM_1, HWP_OUT_2, QWP_OUT_2,
                                  HWP_1, QWP_1, HWP_12, QWP_12,
                                  COMPORT, Waveplate)
+from libraries.waveplate_angles import unitaries_angles
 
 # Input-arm pairs are HWP-then-QWP (state prep, H -> basis): basis_angles.
 # Tomography-arm pairs are QWP-then-HWP (analyzer, basis -> H): tomo_angles.
@@ -98,6 +99,7 @@ def main():
     prompt = (
         "Pair (eg. in), 'all', stage name (eg. h1), "
         f"stage number ({min(_STAGE_MAP)}-{max(_STAGE_MAP)}), "
+        f"'u3'/'u4'/'u5'/'u6' (set that unitary's internal waveplates), "
         "'0' (zero all waveplates to their OA), or 'done' to quit: "
     )
     while True:
@@ -119,6 +121,9 @@ def main():
         elif val in _SINGLE_STAGES:
             wp, angles, idx = _SINGLE_STAGES[val]
             _set_single_interactive(wp, angles, idx, val)
+        elif val.startswith('u') and val[1:] in unitaries_angles:
+            print(f"  Setting unitary U{val[1:]} internal waveplates:")
+            tl.set_fixed_waveplates(unitaries_angles[val[1:]])
         else:
             try:
                 stage_id = int(val)
