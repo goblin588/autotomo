@@ -21,7 +21,7 @@ import numpy as np
 
 from libraries.basis_vectors import basis_angles, loop_analyzer_angles
 from libraries.optics import HWP, QWP
-from tomo_auto import fibre_tomo
+from tomo_auto import _measure_fibre, fibre_tomo
 
 BASES = ('H', 'V', 'A', 'D', 'R', 'L')
 H_KET = np.array([[1.0 + 0j], [0.0]])
@@ -76,8 +76,10 @@ def test_loop_analyzer_table_reproduces_mub_pattern():
 
 
 def test_fibre_tomo_loop_uses_loop_analyzer_table():
+    # The table-selection logic lives in _measure_fibre (fibre_tomo's
+    # hardware-only half, shared-connection refactor, 2026-11-09).
     import inspect
-    src = inspect.getsource(fibre_tomo)
+    src = inspect.getsource(_measure_fibre)
     assert 'analyzer_table = loop_table, tl.loop_analyzer_angles' in src, (
         "loop mode must analyze via loop_analyzer_angles, not the default "
         "tomo_angles (that's OUT_2's non-loop role)")

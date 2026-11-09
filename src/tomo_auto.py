@@ -131,29 +131,29 @@ def _measure_tomo(angles, path, bases, angle_table=None, on_progress=None):
     return res
 
 
-def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None):
-    """Tomo each input basis in bases, then plot against theory and notify."""
-    res = _measure_tomo(angles, path, bases, angle_table=angle_table)
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
-                                    plot_type=plot_type, show_plot=show_plot, path=path,
-                                    note=note)
+def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None,
+            label=None, progress=None):
+    """Tomo each input basis in bases, measuring quietly behind a live
+    progress spinner, then plot against theory and notify.
+
+    label: text shown before the spinner's (%) and dots (default: plot_type).
+    progress: a _Progress counter to share across several run_tomo calls,
+    e.g. one shared % for a whole batch; defaults to a fresh one scoped to
+    just this call (len(bases) x 6 output-basis measurements).
+    """
+    if progress is None:
+        progress = _Progress(len(bases) * 6)
+    label = label if label is not None else plot_type
+    label_fn = lambda: f"Measuring {label} ({progress.pct()}%) "
+
+    res = _run_quiet_with_spinner(label_fn, _measure_tomo, angles, path, bases,
+                                  angle_table=angle_table, on_progress=progress.tick)
+    fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
+                plot_type=plot_type, show_plot=show_plot, path=path, note=note)
+    print(f"{label_fn()}fit: {fit:.4f}")
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
            title=f"{plot_type} tomo complete",
            priority="high" if len(bases) > 2 else "default")
-    return fit
-
-
-def _characterise_one(label_fn, angles, path, bases, plot_type, angle_table=None, note=None,
-                      on_progress=None):
-    """Measure in the background behind a spinner (prints swallowed), then
-    plot on the calling thread — matplotlib isn't thread-safe, so plotting
-    must stay off the spinner's background thread."""
-    res = _run_quiet_with_spinner(label_fn, _measure_tomo, angles, path, bases,
-                                  angle_table=angle_table, on_progress=on_progress)
-    fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
-                plot_type=plot_type, show_plot=False, path=path, note=note)
-    notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
-           title=f"{plot_type} tomo complete", priority="default")
     return fit
 
 
@@ -205,12 +205,10 @@ def characterise_all(path: int = 2):
     completed = []
     try:
         for N, kind, bases, angle_table, plot_type in runs:
-            label_fn = lambda: f"Measuring unitary {N} {kind} ({progress.pct()}%) "
             angles = ({**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'} if N == '0'
                       else {**unitaries_angles[N], 'title': 'U', 'N': N})
-            fit = _characterise_one(label_fn, angles, path, bases, plot_type,
-                                    angle_table=angle_table, note=note, on_progress=progress.tick)
-            print(f"{label_fn()}fit: {fit:.4f}")
+            run_tomo(angles, path, bases, plot_type, angle_table=angle_table, note=note,
+                    label=f"unitary {N} {kind}", progress=progress)
             completed.append(f'{N}({kind})')
     finally:
         # Each completed run's plot/data was already written to disk before
@@ -228,6 +226,25 @@ def characterise_all(path: int = 2):
                    title="Characterise all interrupted", priority="high")
 
 
+def _measure_fibre(bases, loop, on_progress=None):
+    """Hardware-only half of fibre_tomo: one shared connection for the
+    whole run instead of one per stage move."""
+    if loop:
+        loop_table = {b: (h, -q) for b, (h, q) in tl.basis_angles.items()}
+        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_OUT_2, HWP_OUT_2, HWP_IN_2, QWP_IN_2
+        prep_table, analyzer_table = loop_table, tl.loop_analyzer_angles
+    else:
+        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN
+        prep_table, analyzer_table = None, None
+    print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
+    with tl.open_connection(COMPORT) as connection, _get_powermeter() as pm:
+        res = tl.input_tomography(analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp, pm, COMPORT,
+                                  bases=bases, angle_table=prep_table, analyzer_table=analyzer_table,
+                                  on_progress=on_progress, connection=connection)
+    tl.beep()
+    return res
+
+
 def fibre_tomo(bases=tl.FULL_BASES, loop=False):
     """Tomo straight through the fibre. No internal optics in between and no
     unitary to fit — it's measured beforehand — so theory is identity.
@@ -239,21 +256,14 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
     Only IN_2's QWP is mounted backwards, though; OUT_2's is not. So OUT_2
     uses basis_vectors.loop_analyzer_angles, not tomo_angles.
     """
-    print(f"Performing {'loop ' if loop else ''}fibre tomography for input states: {', '.join(bases)}")
-    if loop:
-        loop_table = {b: (h, -q) for b, (h, q) in tl.basis_angles.items()}
-        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_OUT_2, HWP_OUT_2, HWP_IN_2, QWP_IN_2
-        prep_table, analyzer_table = loop_table, tl.loop_analyzer_angles
-    else:
-        analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp = QWP_IN_2, HWP_IN_2, HWP_IN, QWP_IN
-        prep_table, analyzer_table = None, None
-    with _get_powermeter() as pm:
-        res = tl.input_tomography(analyzer_qwp, analyzer_hwp, prep_hwp, prep_qwp, pm, COMPORT,
-                                  bases=bases, angle_table=prep_table, analyzer_table=analyzer_table)
-    tl.beep()
     angles = {'title': 'Fibre (loop)' if loop else 'Fibre'}
-    fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
-                                    plot_type='Fibre', show_plot=True, identity=True)
+    progress = _Progress(len(bases) * 6)
+    label_fn = lambda: f"Measuring {angles['title']} ({progress.pct()}%) "
+
+    res = _run_quiet_with_spinner(label_fn, _measure_fibre, bases, loop, on_progress=progress.tick)
+    fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
+                plot_type='Fibre', show_plot=True, identity=True)
+    print(f"{label_fn()}fit: {fit:.4f}")
     notify(f"Fibre tomo done — fit: {fit:.4f}",
            title="Fibre tomo complete", priority="default")
 
@@ -276,25 +286,34 @@ def s_tomo(angles, path):
 
 def multi_run(angles, path: int = 2):
     n = int(input("Collect how many measurements?: "))
-    tl.set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     res_out = {}
-    with _get_powermeter() as pm:
-        try:
+    progress = _Progress(n * len(tl.HVAD_BASES) * 6)
+    label_fn = lambda: f"Collecting {n} runs ({progress.pct()}%) "
+
+    def _measure_all():
+        with tl.open_connection(COMPORT) as connection, _get_powermeter() as pm:
+            tl.set_fixed_waveplates(angles, path, connection=connection)
             for i in range(n):
-                print(f"Performing measurement {i + 1}/{n}...")
-                res_out[i] = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT, bases=tl.HVAD_BASES)
+                res_out[i] = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT,
+                                                 bases=tl.HVAD_BASES, on_progress=progress.tick,
+                                                 connection=connection)
                 notify(f"Run {i + 1}/{n} done — {angles['title']}", title="Multi-run progress")
-        except Exception as e:
-            print(f"Measurement failed: {e}")
-            notify(f"Measurement failed at run {len(res_out)}/{n}: {e}", title="autotomo error", priority="urgent")
+        tl.beep()
 
-    tl.beep()
-    notify(f"All {n} runs complete — {angles['title']}", title="Multi-run complete", priority="high")
+    try:
+        _run_quiet_with_spinner(label_fn, _measure_all)
+    except Exception as e:
+        print(f"{label_fn()}failed: {e}")
+        notify(f"Measurement failed at run {len(res_out)}/{n}: {e}", title="autotomo error", priority="urgent")
 
-    for i in res_out:
-        cpl.plot_characterisation(res_out[i], graph_title=angles['title'], angles=angles,
-                                  plot_type=f'{i}_Multi', save_data=False, save_plot=False, show_plot=False, path=path)
+    print(f"{label_fn()}done ({len(res_out)}/{n} runs)")
+    notify(f"All {len(res_out)} runs complete — {angles['title']}", title="Multi-run complete", priority="high")
+
+    fits = [_quiet(cpl.plot_characterisation, res_out[i], graph_title=angles['title'], angles=angles,
+                   plot_type=f'{i}_Multi', save_data=False, save_plot=False, show_plot=False, path=path)
+            for i in res_out]
+    print("Fits: " + ", ".join(f"{f:.4f}" for f in fits))
 
     norm_data = {i: cpl.normalise_full_tomo_data(res_out[i]) for i in res_out}
     filepath = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M/")
