@@ -23,7 +23,12 @@ from libraries.basis_vectors import process_state_angles
 from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
 from libraries.notifier import notify
-from polarisation_tuner import polarisation_tuner
+from libraries.polarisation_tuner import polarisation_tuner
+from libraries.waveplate_angles import unitaries_angles
+
+ZERO_ANGLES = {k: 0 for k in
+              ('q1', 'h1', 'q2', 'h2', 'qf1', 'hf1', 'qf2', 'hf2', 'qin2', 'hin2')}
+ZERO_ANGLES.update(m1=3.16, m2=3.77, m3=3.74)
 
 
 def _tomo_stages(path: int):
@@ -40,11 +45,12 @@ def _get_powermeter(wavelength=1550, verbose=True):
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 
-def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
+def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None):
     """Tomo each input basis in bases, then plot against theory and notify.
 
     angle_table: prep-angle lookup passed to input_tomography (default
     basis_angles; pass process_state_angles for s{j}_{N} inputs).
+    note: shared folder-name prefix, e.g. to group a batch of runs together.
     """
     print(f"Performing tomography for input states: {', '.join(bases)}")
     tl.set_fixed_waveplates(angles, path)
@@ -54,10 +60,33 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None):
                                   bases=bases, angle_table=angle_table)
     tl.beep()
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
-                                    plot_type=plot_type, show_plot=show_plot, path=path)
+                                    plot_type=plot_type, show_plot=show_plot, path=path,
+                                    note=note)
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
            title=f"{plot_type} tomo complete",
            priority="high" if len(bases) > 2 else "default")
+
+
+def characterise_all(path: int = 2):
+    """Run a full characterisation for N=0 (zeroed internal angles, plain HVAD
+    tomo) then each configured unitary 3-6 (process-state tomo of all s_j
+    states), back to back with no prompts in between. All runs share one
+    folder-name prefix."""
+    custom_title = input("Custom title to append to the folder name (blank for none): ").strip()
+    note = datetime.datetime.now().strftime("MultipleUnitaryMeasurement_%Y-%m-%d__%H-%M")
+    if custom_title:
+        note += f"_{custom_title}"
+
+    zero_angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
+    run_tomo(zero_angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
+
+    for N in ('3', '4', '5', '6'):
+        angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+        s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+        run_tomo(angles, path, s_keys, plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+
+    tl.beep()
+    notify("Characterise-all run complete (N=0,3,4,5,6)", title="Characterise all complete", priority="high")
 
 
 def fibre_tomo(bases=tl.FULL_BASES, loop=False):
@@ -162,19 +191,25 @@ def main():
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
             "  P             — replot saved data\n"
+            "  CA            — characterise all unitaries (0, 3, 4, 5, 6) in sequence\n"
             "> "
         ).upper()
 
         if choice == 'T':
             polarisation_tuner()
             break
-        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'FIB', 'M', 'P'):
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, FIB, M, T, P")
+        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'FIB', 'M', 'P', 'CA'):
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, FIB, M, T, P, CA")
             continue
 
         if choice == 'FIB':
             loop = input("Loop path? [y/N]: ").strip().lower() == 'y'
             fibre_tomo(loop=loop)
+            break
+
+        if choice == 'CA':
+            _p = input("Output path [1/2, default 2]: ").strip()
+            characterise_all(path=1 if _p == '1' else 2)
             break
 
         angles = angle_menu()

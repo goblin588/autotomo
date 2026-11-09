@@ -244,7 +244,7 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
                           plot_type: str | None = None, note: str | None = None,
                           save_plot: bool = True, save_data: bool = True,
                           show_plot: bool = True, path: int = 2,
-                          identity: bool = False) -> None:
+                          identity: bool = False) -> float:
     """
     Plot measured vs theoretical probabilities for all input bases in data.
     Works for any number of bases — subplots scale in a 2-column layout.

@@ -14,7 +14,7 @@ import numpy as np
 
 from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
 from libraries.optics import HWP, QWP
-from polarisation_tuner import _D_TO_V_OUT, _D_TO_V_OUT_LOOP
+from libraries.polarisation_tuner import _D_TO_V_OUT, _D_TO_V_OUT_LOOP
 
 BASES = ('H', 'V', 'A', 'D', 'R', 'L')
 CONJUGATE = {'H': 'V', 'V': 'H', 'A': 'D', 'D': 'A', 'R': 'L', 'L': 'R'}
