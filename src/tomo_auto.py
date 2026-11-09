@@ -67,26 +67,41 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
            priority="high" if len(bases) > 2 else "default")
 
 
+ALL_N = ('0', '3', '4', '5', '6')
+
+
 def characterise_all(path: int = 2):
-    """Run a full characterisation for N=0 (zeroed internal angles, plain HVAD
-    tomo) then each configured unitary 3-6 (process-state tomo of all s_j
-    states), back to back with no prompts in between. All runs share one
-    folder-name prefix."""
+    """Run a full characterisation for a chosen subset of N=0 (zeroed internal
+    angles, plain HVAD tomo) and configured unitaries 3-6 (process-state tomo
+    of all s_j states), back to back with no prompts in between. All runs
+    share one folder-name prefix."""
+    choice = input(f"Which unitaries? ({','.join(ALL_N)}, Enter for all): ").strip()
+    if choice:
+        wanted = set(choice.replace(',', ' ').split())
+        n_list = tuple(n for n in ALL_N if n in wanted)
+        if not n_list:
+            print(f"No valid unitaries in {choice!r}. Valid: {', '.join(ALL_N)}")
+            return
+    else:
+        n_list = ALL_N
+
     custom_title = input("Custom title to append to the folder name (blank for none): ").strip()
     note = datetime.datetime.now().strftime("MultipleUnitaryMeasurement_%Y-%m-%d__%H-%M")
     if custom_title:
         note += f"_{custom_title}"
 
-    zero_angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
-    run_tomo(zero_angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
-
-    for N in ('3', '4', '5', '6'):
-        angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
-        s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
-        run_tomo(angles, path, s_keys, plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+    for N in n_list:
+        if N == '0':
+            angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
+            run_tomo(angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
+        else:
+            angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+            s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+            run_tomo(angles, path, s_keys, plot_type=f'S{N}', angle_table=process_state_angles, note=note)
 
     tl.beep()
-    notify("Characterise-all run complete (N=0,3,4,5,6)", title="Characterise all complete", priority="high")
+    notify(f"Characterise-all run complete (N={','.join(n_list)})",
+           title="Characterise all complete", priority="high")
 
 
 def fibre_tomo(bases=tl.FULL_BASES, loop=False):
@@ -191,7 +206,7 @@ def main():
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
             "  P             — replot saved data\n"
-            "  CA            — characterise all unitaries (0, 3, 4, 5, 6) in sequence\n"
+            "  CA            — characterise chosen unitaries (0, 3, 4, 5, 6) in sequence\n"
             "> "
         ).upper()
 
