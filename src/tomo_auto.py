@@ -9,8 +9,11 @@ Run with AUTOTOMO_SIM=1 to use mock hardware (no physical connection needed):
     AUTOTOMO_SIM=1 python tomo_auto.py
 """
 import datetime
+import io
 import os
 import sys
+import threading
+import time
 
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
@@ -29,6 +32,41 @@ from libraries.waveplate_angles import unitaries_angles
 ZERO_ANGLES = {k: 0 for k in
               ('q1', 'h1', 'q2', 'h2', 'qf1', 'hf1', 'qf2', 'hf2', 'qin2', 'hin2')}
 ZERO_ANGLES.update(m1=3.16, m2=3.77, m3=3.74)
+
+
+def _run_quiet_with_spinner(label: str, fn, *args, **kwargs):
+    """Run fn in the background with its prints swallowed, showing a
+    bouncing-dots spinner in their place. Returns fn's return value."""
+    out = {}
+
+    def target():
+        try:
+            out['value'] = fn(*args, **kwargs)
+        except Exception as e:
+            out['error'] = e
+
+    real_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    thread = threading.Thread(target=target)
+    thread.start()
+
+    frames = [*range(1, 6), *range(4, 0, -1)]
+    i = 0
+    try:
+        while thread.is_alive():
+            dots = '.' * frames[i % len(frames)]
+            real_stdout.write(f'\r{label}{dots:<5}')
+            real_stdout.flush()
+            time.sleep(0.2)
+            i += 1
+    finally:
+        thread.join()
+        sys.stdout = real_stdout
+    real_stdout.write(f'\r{label}{"":<5}\r')
+
+    if 'error' in out:
+        raise out['error']
+    return out.get('value')
 
 
 def _tomo_stages(path: int):
@@ -65,6 +103,7 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
            title=f"{plot_type} tomo complete",
            priority="high" if len(bases) > 2 else "default")
+    return fit
 
 
 ALL_N = ('0', '3', '4', '5', '6')
@@ -91,13 +130,17 @@ def characterise_all(path: int = 2):
         note += f"_{custom_title}"
 
     for N in n_list:
+        label = f"Measuring unitary {N} "
         if N == '0':
             angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
-            run_tomo(angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
+            fit = _run_quiet_with_spinner(label, run_tomo, angles, path, tl.HVAD_BASES,
+                                          plot_type='Full', note=note)
         else:
             angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
             s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
-            run_tomo(angles, path, s_keys, plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+            fit = _run_quiet_with_spinner(label, run_tomo, angles, path, s_keys,
+                                          plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+        print(f"{label}fit: {fit:.4f}")
 
     tl.beep()
     notify(f"Characterise-all run complete (N={','.join(n_list)})",
