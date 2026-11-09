@@ -7,7 +7,7 @@ from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                  HWP_TOM_DUMP, QWP_TOM_DUMP,
                                  HWP_TOM_1, QWP_TOM_1, HWP_OUT_2, QWP_OUT_2,
                                  HWP_1, QWP_1, HWP_12, QWP_12,
-                                 COMPORT, Waveplate)
+                                 COMPORT, SIM_MODE, Waveplate)
 from libraries.waveplate_angles import unitaries_angles
 
 # Input-arm pairs are HWP-then-QWP (state prep, H -> basis): basis_angles.
@@ -95,11 +95,66 @@ def _set_single_interactive(wp, angles, idx, label):
     print(f"  Set to {angle:.2f}°{oa_note}")
 
 
+def _get_powermeter(wavelength=1550, verbose=True):
+    if SIM_MODE:
+        from interfaces.mock import MockPowerMeter
+        return MockPowerMeter(wavelength=wavelength, verbose=verbose)
+    import interfaces.pm100usb as pml
+    return pml.PM100USB(wavelength=wavelength, verbose=verbose)
+
+
+def check_polarisation():
+    """End-to-end polarisation extinction check: send D, analyze D (should
+    be max) then A (should be ~0); send H, analyze H (max) then V (~0).
+    Reports visibility = (max-min)/(max+min) as a percentage for each pair
+    -- close to 100% means the polarisation setting is good.
+
+    Everything except the input pair and the chosen output pair is zeroed
+    first, so nothing else in the beam path can bias the result.
+    """
+    out_keys = [k for k in _PAIRS if k != 'in']
+    out_key = input(f"Which output pair to check ({'/'.join(out_keys)}): ").strip().lower()
+    if out_key not in out_keys:
+        print("  Unrecognised output pair — skipping.")
+        return
+
+    hwp_in, qwp_in, _, _ = _PAIRS['in']
+    hwp_out, qwp_out, out_label, _ = _PAIRS[out_key]
+
+    print(f"  Checking {out_label} — zeroing everything else...")
+    for key, (hwp, qwp, _, _) in _PAIRS.items():
+        if key in ('in', out_key):
+            continue
+        tl.move_stage(hwp, 0, COMPORT)
+        tl.move_stage(qwp, 0, COMPORT)
+    for wp in _EXTRA_STAGES:
+        tl.move_stage(wp, 0, COMPORT)
+
+    with _get_powermeter() as pm:
+        for send_basis, null_basis in (('D', 'A'), ('H', 'V')):
+            tl.move_stage(hwp_in, basis_angles[send_basis][0], COMPORT)
+            tl.move_stage(qwp_in, basis_angles[send_basis][1], COMPORT)
+
+            tl.move_stage(hwp_out, tomo_angles[send_basis][0], COMPORT)
+            tl.move_stage(qwp_out, tomo_angles[send_basis][1], COMPORT)
+            max_val, _ = pm.read(n=tl.N_READS)
+
+            tl.move_stage(hwp_out, tomo_angles[null_basis][0], COMPORT)
+            tl.move_stage(qwp_out, tomo_angles[null_basis][1], COMPORT)
+            min_val, _ = pm.read(n=tl.N_READS)
+
+            visibility = (max_val - min_val) / (max_val + min_val) * 100
+            print(f"  Send {send_basis}, analyze {send_basis}: {max_val * 1000:.4f} mW (max)")
+            print(f"  Send {send_basis}, analyze {null_basis}: {min_val * 1000:.4f} mW (min)")
+            print(f"  Visibility ({send_basis}/{null_basis}): {visibility:.2f}%")
+
+
 def main():
     prompt = (
         "Pair (eg. in), 'all', stage name (eg. h1), "
         f"stage number ({min(_STAGE_MAP)}-{max(_STAGE_MAP)}), "
         f"'u3'/'u4'/'u5'/'u6' (set that unitary's internal waveplates), "
+        "'vis' (check polarisation visibility), "
         "'0' (zero all waveplates to their OA), or 'done' to quit: "
     )
     while True:
@@ -124,6 +179,8 @@ def main():
         elif val.startswith('u') and val[1:] in unitaries_angles:
             print(f"  Setting unitary U{val[1:]} internal waveplates:")
             tl.set_fixed_waveplates(unitaries_angles[val[1:]])
+        elif val == 'vis':
+            check_polarisation()
         else:
             try:
                 stage_id = int(val)
