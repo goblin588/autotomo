@@ -69,6 +69,20 @@ def _run_quiet_with_spinner(label: str, fn, *args, **kwargs):
     return out.get('value')
 
 
+def _quiet(fn, *args, **kwargs):
+    """Call fn with its prints swallowed. Returns fn's return value.
+
+    Unlike _run_quiet_with_spinner, this runs fn on the calling thread —
+    use it for matplotlib work, which isn't thread-safe and must not run
+    on the background thread a spinner uses."""
+    real_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        sys.stdout = real_stdout
+
+
 def _tomo_stages(path: int):
     if path == 1:
         return HWP_TOM_1, QWP_TOM_1
@@ -83,12 +97,12 @@ def _get_powermeter(wavelength=1550, verbose=True):
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 
-def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None):
-    """Tomo each input basis in bases, then plot against theory and notify.
+def _measure_tomo(angles, path, bases, angle_table=None):
+    """Hardware-only: set the fixed waveplates, tomo each input basis.
+    Returns the raw {input_basis: {output_state: (power, err)}} results.
 
     angle_table: prep-angle lookup passed to input_tomography (default
     basis_angles; pass process_state_angles for s{j}_{N} inputs).
-    note: shared folder-name prefix, e.g. to group a batch of runs together.
     """
     print(f"Performing tomography for input states: {', '.join(bases)}")
     tl.set_fixed_waveplates(angles, path)
@@ -97,6 +111,12 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT,
                                   bases=bases, angle_table=angle_table)
     tl.beep()
+    return res
+
+
+def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None):
+    """Tomo each input basis in bases, then plot against theory and notify."""
+    res = _measure_tomo(angles, path, bases, angle_table=angle_table)
     fit = cpl.plot_characterisation(res, graph_title=angles['title'], angles=angles,
                                     plot_type=plot_type, show_plot=show_plot, path=path,
                                     note=note)
@@ -106,14 +126,26 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
     return fit
 
 
+def _characterise_one(label, angles, path, bases, plot_type, angle_table=None, note=None):
+    """Measure in the background behind a spinner (prints swallowed), then
+    plot on the calling thread — matplotlib isn't thread-safe, so plotting
+    must stay off the spinner's background thread."""
+    res = _run_quiet_with_spinner(label, _measure_tomo, angles, path, bases, angle_table=angle_table)
+    fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
+                plot_type=plot_type, show_plot=False, path=path, note=note)
+    notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
+           title=f"{plot_type} tomo complete", priority="default")
+    return fit
+
+
 ALL_N = ('0', '3', '4', '5', '6')
 
 
 def characterise_all(path: int = 2):
     """Run a full characterisation for a chosen subset of N=0 (zeroed internal
-    angles, plain HVAD tomo) and configured unitaries 3-6 (process-state tomo
-    of all s_j states), back to back with no prompts in between. All runs
-    share one folder-name prefix."""
+    angles, plain HVAD tomo) and configured unitaries 3-6 (HVAD tomo and/or
+    process-state tomo of all s_j states — your choice), back to back with
+    no prompts in between. All runs share one folder-name prefix."""
     choice = input(f"Which unitaries? ({','.join(ALL_N)}, Enter for all): ").strip()
     if choice:
         wanted = set(choice.replace(',', ' ').split())
@@ -124,39 +156,56 @@ def characterise_all(path: int = 2):
     else:
         n_list = ALL_N
 
+    mode = input("For N=3-6, characterise with HVAD inputs, S states, or both? [H/S/B]: ").strip().upper()[:1]
+    if mode not in ('H', 'S', 'B'):
+        mode = 'H'
+
     custom_title = input("Custom title to append to the folder name (blank for none): ").strip()
     note = datetime.datetime.now().strftime("MultipleUnitaryMeasurement_%Y-%m-%d__%H-%M")
     if custom_title:
         note += f"_{custom_title}"
 
-    total = len(n_list)
+    # N=0 has no s-states, so it's always just HVAD regardless of mode.
+    runs = []
+    for N in n_list:
+        if N == '0':
+            runs.append(('0', 'HVAD'))
+        else:
+            if mode in ('H', 'B'):
+                runs.append((N, 'HVAD'))
+            if mode in ('S', 'B'):
+                runs.append((N, 'S'))
+
+    total = len(runs)
     completed = []
     try:
-        for i, N in enumerate(n_list):
+        for i, (N, kind) in enumerate(runs):
             pct = round(100 * i / total)
-            label = f"Measuring unitary {N} ({pct}%) "
+            label = f"Measuring unitary {N} {kind} ({pct}%) "
             if N == '0':
                 angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
-                fit = _run_quiet_with_spinner(label, run_tomo, angles, path, tl.HVAD_BASES,
-                                              plot_type='Full', note=note)
+                fit = _characterise_one(label, angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
+            elif kind == 'HVAD':
+                angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+                fit = _characterise_one(label, angles, path, tl.HVAD_BASES, plot_type=f'Full{N}', note=note)
             else:
                 angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
                 s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
-                fit = _run_quiet_with_spinner(label, run_tomo, angles, path, s_keys,
-                                              plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+                fit = _characterise_one(label, angles, path, s_keys, plot_type=f'S{N}',
+                                        angle_table=process_state_angles, note=note)
             print(f"{label}fit: {fit:.4f}")
-            completed.append(N)
+            completed.append(f'{N}({kind})')
     finally:
-        # Each completed unitary's plot/data was already written to disk by
-        # run_tomo before it returned, so a Ctrl-C here only drops the
-        # *remaining* unitaries, not the finished ones — report what made it.
+        # Each completed run's plot/data was already written to disk before
+        # its call returned, so a Ctrl-C here only drops the *remaining*
+        # runs, not the finished ones — report what made it.
         tl.beep()
         done_str = ','.join(completed) if completed else 'none'
         if len(completed) == total:
-            notify(f"Characterise-all run complete (N={done_str})",
+            notify(f"Characterise-all run complete ({done_str})",
                    title="Characterise all complete", priority="high")
         else:
-            remaining = ','.join(n for n in n_list if n not in completed)
+            remaining = ','.join(f'{n}({k})' for n, k in runs if f'{n}({k})' not in completed)
             print(f"Characterise-all stopped early — done: {done_str} — not run: {remaining}")
             notify(f"Characterise-all interrupted — done: {done_str} — not run: {remaining}",
                    title="Characterise all interrupted", priority="high")
