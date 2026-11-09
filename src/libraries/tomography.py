@@ -20,6 +20,11 @@ HV_BASES   = ('H', 'V')
 HVAD_BASES = ('H', 'V', 'A', 'D')
 FULL_BASES = ('H', 'V', 'A', 'D', 'R', 'L')
 
+# Power-meter samples averaged per output-basis read. Bigger n = tighter
+# error bars but slower (SEM ~ 1/sqrt(n)); 300->50 was a 6x speedup for a
+# ~2.45x wider SEM (2026-11-09).
+N_READS = 50
+
 
 def beep():
     print('\a', end='', flush=True)
@@ -86,7 +91,7 @@ def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | Non
         move_stage(hwp, table[basis][0], smc_port)
         move_stage(qwp, table[basis][1], smc_port)
         time.sleep(0.1)
-        pwr, err = powermeter.read(n=300)
+        pwr, err = powermeter.read(n=N_READS)
         print(f"Power: {round(pwr * 1000, 2)} mW")
         res[basis] = (pwr, err)
         if on_progress is not None:
