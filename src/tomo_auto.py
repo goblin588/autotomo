@@ -129,22 +129,37 @@ def characterise_all(path: int = 2):
     if custom_title:
         note += f"_{custom_title}"
 
-    for N in n_list:
-        label = f"Measuring unitary {N} "
-        if N == '0':
-            angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
-            fit = _run_quiet_with_spinner(label, run_tomo, angles, path, tl.HVAD_BASES,
-                                          plot_type='Full', note=note)
+    total = len(n_list)
+    completed = []
+    try:
+        for i, N in enumerate(n_list):
+            pct = round(100 * i / total)
+            label = f"Measuring unitary {N} ({pct}%) "
+            if N == '0':
+                angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
+                fit = _run_quiet_with_spinner(label, run_tomo, angles, path, tl.HVAD_BASES,
+                                              plot_type='Full', note=note)
+            else:
+                angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+                s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+                fit = _run_quiet_with_spinner(label, run_tomo, angles, path, s_keys,
+                                              plot_type=f'S{N}', angle_table=process_state_angles, note=note)
+            print(f"{label}fit: {fit:.4f}")
+            completed.append(N)
+    finally:
+        # Each completed unitary's plot/data was already written to disk by
+        # run_tomo before it returned, so a Ctrl-C here only drops the
+        # *remaining* unitaries, not the finished ones — report what made it.
+        tl.beep()
+        done_str = ','.join(completed) if completed else 'none'
+        if len(completed) == total:
+            notify(f"Characterise-all run complete (N={done_str})",
+                   title="Characterise all complete", priority="high")
         else:
-            angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
-            s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
-            fit = _run_quiet_with_spinner(label, run_tomo, angles, path, s_keys,
-                                          plot_type=f'S{N}', angle_table=process_state_angles, note=note)
-        print(f"{label}fit: {fit:.4f}")
-
-    tl.beep()
-    notify(f"Characterise-all run complete (N={','.join(n_list)})",
-           title="Characterise all complete", priority="high")
+            remaining = ','.join(n for n in n_list if n not in completed)
+            print(f"Characterise-all stopped early — done: {done_str} — not run: {remaining}")
+            notify(f"Characterise-all interrupted — done: {done_str} — not run: {remaining}",
+                   title="Characterise all interrupted", priority="high")
 
 
 def fibre_tomo(bases=tl.FULL_BASES, loop=False):
