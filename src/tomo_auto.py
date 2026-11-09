@@ -121,11 +121,12 @@ def _measure_tomo(angles, path, bases, angle_table=None, on_progress=None):
     on_progress: called after every output-basis measurement.
     """
     print(f"Performing tomography for input states: {', '.join(bases)}")
-    tl.set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
-    with _get_powermeter() as pm:
+    with tl.open_connection(COMPORT) as connection, _get_powermeter() as pm:
+        tl.set_fixed_waveplates(angles, path, connection=connection)
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT,
-                                  bases=bases, angle_table=angle_table, on_progress=on_progress)
+                                  bases=bases, angle_table=angle_table, on_progress=on_progress,
+                                  connection=connection)
     tl.beep()
     return res
 

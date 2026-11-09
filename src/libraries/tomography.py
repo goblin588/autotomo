@@ -30,7 +30,14 @@ def beep():
     print('\a', end='', flush=True)
 
 
-def set_fixed_waveplates(angles, path=None):
+def open_connection(smc_port: str = COMPORT):
+    """Open one serial connection, to be reused across multiple move_stage
+    calls (pass it as `connection=`) instead of opening a fresh connection
+    per move."""
+    return _Connection(port=smc_port)
+
+
+def set_fixed_waveplates(angles, path=None, connection=None):
     """Move any fixed-position waveplates that have non-zero angles set.
 
     The analyzer pair for `path` (TOM_1 for path 1, OUT_2 for path 2) is
@@ -53,12 +60,13 @@ def set_fixed_waveplates(angles, path=None):
         if key in skip or angles.get(key) is None:
             continue
         print(f"Setting {name} to {angles[key]}°")
-        move_stage(stage, angles[key], COMPORT)
+        move_stage(stage, angles[key], COMPORT, connection=connection)
 
 
 def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
                      bases: tuple = HVAD_BASES, angle_table: dict | None = None,
-                     analyzer_table: dict | None = None, on_progress=None) -> dict:
+                     analyzer_table: dict | None = None, on_progress=None,
+                     connection=None) -> dict:
     """
     Perform single_tomography for each input basis in bases.
     angle_table maps basis -> [hwp, qwp] prep angles (default: basis_angles;
@@ -68,28 +76,31 @@ def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
     order/mount isn't the usual QWP-then-HWP, e.g. the loop's OUT_2).
     on_progress: called after every single output-basis measurement (so
     once per input basis x output basis pair), for progress reporting.
+    connection: an already-open connection (from open_connection()) to reuse
+    for every move instead of opening one per move.
     Returns {basis: {output_state: (power, err)}}.
     """
     table = angle_table if angle_table is not None else basis_angles
     res = {}
     for basis in bases:
         print(f"Setting New Input Basis : |{basis}>")
-        move_stage(hwp_in, table[basis][0], smc_port)
-        move_stage(qwp_in, table[basis][1], smc_port)
+        move_stage(hwp_in, table[basis][0], smc_port, connection=connection)
+        move_stage(qwp_in, table[basis][1], smc_port, connection=connection)
         res[basis] = single_tomography(qwp, hwp, powermeter, smc_port,
-                                        analyzer_table=analyzer_table, on_progress=on_progress)
+                                        analyzer_table=analyzer_table, on_progress=on_progress,
+                                        connection=connection)
     return res
 
 
 def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | None = None,
-                      on_progress=None) -> dict:
+                      on_progress=None, connection=None) -> dict:
     """Measure all 6 output states (HVADRL) for the current input state."""
     table = analyzer_table if analyzer_table is not None else tomo_angles
     res = {}
     for basis in FULL_BASES:
         print(f"Measuring Output |{basis}>, HWP: {table[basis][0]}, QWP: {table[basis][1]}")
-        move_stage(hwp, table[basis][0], smc_port)
-        move_stage(qwp, table[basis][1], smc_port)
+        move_stage(hwp, table[basis][0], smc_port, connection=connection)
+        move_stage(qwp, table[basis][1], smc_port, connection=connection)
         time.sleep(0.1)
         pwr, err = powermeter.read(n=N_READS)
         print(f"Power: {round(pwr * 1000, 2)} mW")
@@ -99,11 +110,21 @@ def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | Non
     return res
 
 
-def move_stage(this_stage, angle: float, smc_port: str) -> None:
-    with _Connection(port=smc_port) as stages:
-        stage = _Stage(stages, smcID=this_stage.ID)
-        stage.enable()
-        try:
-            stage.move_absolute(angle + this_stage.OA)
-        finally:
-            stage.disable()
+def _move(stages, this_stage, angle: float) -> None:
+    stage = _Stage(stages, smcID=this_stage.ID)
+    stage.enable()
+    try:
+        stage.move_absolute(angle + this_stage.OA)
+    finally:
+        stage.disable()
+
+
+def move_stage(this_stage, angle: float, smc_port: str, connection=None) -> None:
+    """Move a single stage. Pass an already-open connection (from
+    open_connection()) to reuse it across many moves instead of opening a
+    fresh serial connection per call."""
+    if connection is not None:
+        _move(connection, this_stage, angle)
+    else:
+        with _Connection(port=smc_port) as stages:
+            _move(stages, this_stage, angle)
