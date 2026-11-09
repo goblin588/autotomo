@@ -87,14 +87,23 @@ class SMC100Connection:
         if not self._silent:
             print('Connecting to SMC100 on {}'.format(port))
         self.COMport = port
+        self._open()
+
+    def _open(self):
         self._port = serial.Serial(
-            port = port,
+            port = self.COMport,
             baudrate = 57600,
             bytesize = 8,
             stopbits = 1,
             parity = 'N',
             xonxoff = True,
             timeout = 0.050)
+
+    def ensure_open(self):
+        """Reopen the serial port if it's been closed out from under this
+        connection (e.g. a prior move's __del__ ran) but it's still in use."""
+        if self._port is None or not self._port.is_open:
+            self._open()
 
     def close(self):
         if self._port:
@@ -174,6 +183,7 @@ class SMC100Stage(SMC100Connection):
         """
         assert command[-1] != '?'
 
+        self.obj.ensure_open()
         if self._port is None:
             return
 
