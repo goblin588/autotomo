@@ -131,8 +131,33 @@ def _measure_tomo(angles, path, bases, angle_table=None, on_progress=None):
     return res
 
 
+def _offer_m1_fit(measurements, path, note, show_plot=False):
+    """measurements: list of (res, angles, plot_type) sharing one m1.
+
+    Prompts to fit a single shared m1 (interferometer mirror phase) against
+    the already-measured data in `measurements` -- no new hardware
+    measurement. On yes, regenerates+saves each measurement's plot under a
+    '_m1fit'-suffixed plot_type, alongside (never overwriting) the original,
+    and reports the before/after fit plus the shared best_m1.
+    """
+    if input("Would you like to fit an m1 value? [y/N]: ").strip().lower() != 'y':
+        return None
+
+    before_fits = [cpl.compute_fit(res, angles, path=path) for res, angles, _ in measurements]
+    best_m1, best_total = cpl.fit_m1([(res, angles) for res, angles, _ in measurements], path=path)
+    print(f"m1 fit: before={sum(before_fits):.4f}  after={best_total:.4f}  best_m1={best_m1:.4f} rad")
+
+    for (res, angles, plot_type), before in zip(measurements, before_fits):
+        fitted_angles = {**angles, 'm1': best_m1}
+        new_fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'],
+                        angles=fitted_angles, plot_type=f'{plot_type}_m1fit',
+                        show_plot=show_plot, path=path, note=note)
+        print(f"  {plot_type}: {before:.4f} -> {new_fit:.4f}")
+    return best_m1
+
+
 def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None,
-            label=None, progress=None):
+            label=None, progress=None, offer_fit=True):
     """Tomo each input basis in bases, measuring quietly behind a live
     progress spinner, then plot against theory and notify.
 
@@ -140,6 +165,9 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
     progress: a _Progress counter to share across several run_tomo calls,
     e.g. one shared % for a whole batch; defaults to a fresh one scoped to
     just this call (len(bases) x 6 output-basis measurements).
+    offer_fit: ask (and run) an m1 fit against this measurement's data once
+    it's done. characterise_all sets this False and offers its own
+    batch-wide fit after the whole run instead.
     """
     if progress is None:
         progress = _Progress(len(bases) * 6)
@@ -154,7 +182,10 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
            title=f"{plot_type} tomo complete",
            priority="high" if len(bases) > 2 else "default")
-    return fit
+
+    if offer_fit:
+        _offer_m1_fit([(res, angles, plot_type)], path, note, show_plot=show_plot)
+    return fit, res
 
 
 ALL_N = ('0', '3', '4', '5', '6')
@@ -203,12 +234,14 @@ def characterise_all(path: int = 2):
 
     total = len(runs)
     completed = []
+    results = []  # (res, angles, plot_type) per completed run, for the post-batch m1 fit
     try:
         for N, kind, bases, angle_table, plot_type in runs:
             angles = ({**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'} if N == '0'
                       else {**unitaries_angles[N], 'title': 'U', 'N': N})
-            run_tomo(angles, path, bases, plot_type, angle_table=angle_table, note=note,
-                    label=f"unitary {N} {kind}", progress=progress)
+            fit, res = run_tomo(angles, path, bases, plot_type, angle_table=angle_table, note=note,
+                                label=f"unitary {N} {kind}", progress=progress, offer_fit=False)
+            results.append((res, angles, plot_type))
             completed.append(f'{N}({kind})')
     finally:
         # Each completed run's plot/data was already written to disk before
@@ -224,6 +257,9 @@ def characterise_all(path: int = 2):
             print(f"Characterise-all stopped early — done: {done_str} — not run: {remaining}")
             notify(f"Characterise-all interrupted — done: {done_str} — not run: {remaining}",
                    title="Characterise all interrupted", priority="high")
+
+    if results:
+        _offer_m1_fit(results, path, note, show_plot=False)
 
 
 def _measure_fibre(bases, loop, on_progress=None):

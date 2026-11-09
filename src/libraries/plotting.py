@@ -276,6 +276,63 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
     return fit
 
 
+def compute_fit(data: dict, angles: dict, path: int = 2, identity: bool = False) -> float:
+    """Pure-math total L2 fit residual (measured vs theory, summed over all
+    input bases in `data`) — the non-plotting twin of the residual sum
+    plot_characterisation computes via _render_basis_subplot. Has no
+    matplotlib calls, so it's safe to call thousands of times in an
+    optimizer loop (e.g. fit_m1 below).
+    """
+    U = np.eye(4, dtype=complex) if identity else _unitary_from_angles(angles, path=path)
+    normalized_data = normalise_full_tomo_data(data)
+    labels = list(basis_vectors.keys())
+    fit = 0.0
+    for basis, norm_slice in normalized_data.items():
+        theory = UnitaryToProb(U, input_state_vector(basis), path=path)
+        measured = np.array([norm_slice[k][0] for k in labels])
+        theory_vals = np.array([theory[k] for k in labels])
+        fit += float(np.linalg.norm(measured - theory_vals))
+    return fit
+
+
+def fit_m1(measurements: list[tuple[dict, dict]], path: int = 2,
+          coarse_points: int = 361, refine_iters: int = 3) -> tuple[float, float]:
+    """Find the single shared m1 (interferometer mirror phase, radians,
+    periodic over [0, 2*pi)) that minimises the TOTAL compute_fit residual
+    summed across every (data, angles) pair in `measurements`, holding every
+    other angle in each pair fixed. A 1-element list fits one measurement in
+    isolation; an N-element list fits one shared m1 jointly across all N.
+
+    m1 enters getUnitary twice (once via M1, once via M3, multiplied in
+    sequence), so the fit-vs-m1 landscape can have more than one local
+    minimum (first- and second-harmonic content) — a brute-force grid scan
+    over the full period avoids the local-minima trap a purely local
+    optimizer (golden-section, gradient descent) could fall into, then a
+    shrinking local refine sharpens the result. No scipy needed.
+
+    Returns (best_m1, best_total_fit).
+    """
+    def total_fit(m1: float) -> float:
+        return sum(compute_fit(data, {**angles, 'm1': m1}, path=path)
+                  for data, angles in measurements)
+
+    grid = np.linspace(0, 2 * np.pi, coarse_points, endpoint=False)
+    fits = np.array([total_fit(m) for m in grid])
+    best_idx = int(np.argmin(fits))
+    best_m1, best_fit = float(grid[best_idx]), float(fits[best_idx])
+
+    span = 2 * np.pi / coarse_points
+    for _ in range(refine_iters):
+        local_grid = np.linspace(best_m1 - span, best_m1 + span, 21) % (2 * np.pi)
+        local_fits = [total_fit(m) for m in local_grid]
+        idx = int(np.argmin(local_fits))
+        if local_fits[idx] < best_fit:
+            best_fit, best_m1 = float(local_fits[idx]), float(local_grid[idx])
+        span *= 0.1
+
+    return best_m1 % (2 * np.pi), best_fit
+
+
 def plot_mirror(normalized_data: dict, categories: list) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     axes = axes.ravel()
