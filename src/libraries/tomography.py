@@ -53,7 +53,7 @@ def set_fixed_waveplates(angles, path=None):
 
 def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
                      bases: tuple = HVAD_BASES, angle_table: dict | None = None,
-                     analyzer_table: dict | None = None) -> dict:
+                     analyzer_table: dict | None = None, on_progress=None) -> dict:
     """
     Perform single_tomography for each input basis in bases.
     angle_table maps basis -> [hwp, qwp] prep angles (default: basis_angles;
@@ -61,6 +61,8 @@ def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
     analyzer_table maps basis -> [hwp, qwp] analyzer angles (default:
     tomo_angles; pass a different table when the analyzer pair's beam
     order/mount isn't the usual QWP-then-HWP, e.g. the loop's OUT_2).
+    on_progress: called after every single output-basis measurement (so
+    once per input basis x output basis pair), for progress reporting.
     Returns {basis: {output_state: (power, err)}}.
     """
     table = angle_table if angle_table is not None else basis_angles
@@ -69,11 +71,13 @@ def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
         print(f"Setting New Input Basis : |{basis}>")
         move_stage(hwp_in, table[basis][0], smc_port)
         move_stage(qwp_in, table[basis][1], smc_port)
-        res[basis] = single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table=analyzer_table)
+        res[basis] = single_tomography(qwp, hwp, powermeter, smc_port,
+                                        analyzer_table=analyzer_table, on_progress=on_progress)
     return res
 
 
-def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | None = None) -> dict:
+def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | None = None,
+                      on_progress=None) -> dict:
     """Measure all 6 output states (HVADRL) for the current input state."""
     table = analyzer_table if analyzer_table is not None else tomo_angles
     res = {}
@@ -85,6 +89,8 @@ def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | Non
         pwr, err = powermeter.read(n=300)
         print(f"Power: {round(pwr * 1000, 2)} mW")
         res[basis] = (pwr, err)
+        if on_progress is not None:
+            on_progress()
     return res
 
 

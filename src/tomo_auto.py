@@ -34,9 +34,10 @@ ZERO_ANGLES = {k: 0 for k in
 ZERO_ANGLES.update(m1=3.16, m2=3.77, m3=3.74)
 
 
-def _run_quiet_with_spinner(label: str, fn, *args, **kwargs):
+def _run_quiet_with_spinner(label_fn, fn, *args, **kwargs):
     """Run fn in the background with its prints swallowed, showing a
-    bouncing-dots spinner in their place. Returns fn's return value."""
+    bouncing-dots spinner in their place. label_fn() is called fresh on
+    every tick, so it can report live progress. Returns fn's return value."""
     out = {}
 
     def target():
@@ -55,18 +56,32 @@ def _run_quiet_with_spinner(label: str, fn, *args, **kwargs):
     try:
         while thread.is_alive():
             dots = '.' * frames[i % len(frames)]
-            real_stdout.write(f'\r{label}{dots:<5}')
+            real_stdout.write(f'\r{label_fn()}{dots:<5}')
             real_stdout.flush()
             time.sleep(0.2)
             i += 1
     finally:
         thread.join()
         sys.stdout = real_stdout
-    real_stdout.write(f'\r{label}{"":<5}\r')
+    real_stdout.write(f'\r{label_fn()}{"":<5}\r')
 
     if 'error' in out:
         raise out['error']
     return out.get('value')
+
+
+class _Progress:
+    """Thread-safe-enough (single incrementer, GIL-protected) step counter."""
+
+    def __init__(self, total: int):
+        self.done = 0
+        self.total = total
+
+    def tick(self):
+        self.done += 1
+
+    def pct(self) -> int:
+        return round(100 * self.done / self.total) if self.total else 100
 
 
 def _quiet(fn, *args, **kwargs):
@@ -97,19 +112,20 @@ def _get_powermeter(wavelength=1550, verbose=True):
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 
-def _measure_tomo(angles, path, bases, angle_table=None):
+def _measure_tomo(angles, path, bases, angle_table=None, on_progress=None):
     """Hardware-only: set the fixed waveplates, tomo each input basis.
     Returns the raw {input_basis: {output_state: (power, err)}} results.
 
     angle_table: prep-angle lookup passed to input_tomography (default
     basis_angles; pass process_state_angles for s{j}_{N} inputs).
+    on_progress: called after every output-basis measurement.
     """
     print(f"Performing tomography for input states: {', '.join(bases)}")
     tl.set_fixed_waveplates(angles, path)
     hwp_tom, qwp_tom = _tomo_stages(path)
     with _get_powermeter() as pm:
         res = tl.input_tomography(qwp_tom, hwp_tom, HWP_IN, QWP_IN, pm, COMPORT,
-                                  bases=bases, angle_table=angle_table)
+                                  bases=bases, angle_table=angle_table, on_progress=on_progress)
     tl.beep()
     return res
 
@@ -126,11 +142,13 @@ def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, 
     return fit
 
 
-def _characterise_one(label, angles, path, bases, plot_type, angle_table=None, note=None):
+def _characterise_one(label_fn, angles, path, bases, plot_type, angle_table=None, note=None,
+                      on_progress=None):
     """Measure in the background behind a spinner (prints swallowed), then
     plot on the calling thread — matplotlib isn't thread-safe, so plotting
     must stay off the spinner's background thread."""
-    res = _run_quiet_with_spinner(label, _measure_tomo, angles, path, bases, angle_table=angle_table)
+    res = _run_quiet_with_spinner(label_fn, _measure_tomo, angles, path, bases,
+                                  angle_table=angle_table, on_progress=on_progress)
     fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
                 plot_type=plot_type, show_plot=False, path=path, note=note)
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
@@ -166,34 +184,32 @@ def characterise_all(path: int = 2):
         note += f"_{custom_title}"
 
     # N=0 has no s-states, so it's always just HVAD regardless of mode.
+    # Each run carries (N, kind, bases, angle_table, plot_type).
     runs = []
     for N in n_list:
         if N == '0':
-            runs.append(('0', 'HVAD'))
+            runs.append(('0', 'HVAD', tl.HVAD_BASES, None, 'Full'))
         else:
             if mode in ('H', 'B'):
-                runs.append((N, 'HVAD'))
+                runs.append((N, 'HVAD', tl.HVAD_BASES, None, f'Full{N}'))
             if mode in ('S', 'B'):
-                runs.append((N, 'S'))
+                s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+                runs.append((N, 'S', s_keys, process_state_angles, f'S{N}'))
+
+    # Progress updates per input-basis x output-basis measurement (single_tomography's
+    # inner loop), across the whole batch — not just once per unitary.
+    progress = _Progress(sum(len(bases) * 6 for _, _, bases, _, _ in runs))
 
     total = len(runs)
     completed = []
     try:
-        for i, (N, kind) in enumerate(runs):
-            pct = round(100 * i / total)
-            label = f"Measuring unitary {N} {kind} ({pct}%) "
-            if N == '0':
-                angles = {**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'}
-                fit = _characterise_one(label, angles, path, tl.HVAD_BASES, plot_type='Full', note=note)
-            elif kind == 'HVAD':
-                angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
-                fit = _characterise_one(label, angles, path, tl.HVAD_BASES, plot_type=f'Full{N}', note=note)
-            else:
-                angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
-                s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
-                fit = _characterise_one(label, angles, path, s_keys, plot_type=f'S{N}',
-                                        angle_table=process_state_angles, note=note)
-            print(f"{label}fit: {fit:.4f}")
+        for N, kind, bases, angle_table, plot_type in runs:
+            label_fn = lambda: f"Measuring unitary {N} {kind} ({progress.pct()}%) "
+            angles = ({**ZERO_ANGLES, 'title': 'Zeroes', 'N': '0'} if N == '0'
+                      else {**unitaries_angles[N], 'title': 'U', 'N': N})
+            fit = _characterise_one(label_fn, angles, path, bases, plot_type,
+                                    angle_table=angle_table, note=note, on_progress=progress.tick)
+            print(f"{label_fn()}fit: {fit:.4f}")
             completed.append(f'{N}({kind})')
     finally:
         # Each completed run's plot/data was already written to disk before
