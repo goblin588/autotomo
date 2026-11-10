@@ -2,16 +2,16 @@
 Functions associated with Tomography control / movement of stages.
 """
 
-from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
-from libraries.settings import (SIM_MODE, COMPORT,
+from autotomo.libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
+from autotomo.libraries.settings import (SIM_MODE, COMPORT,
                                 HWP_IN_2, QWP_IN_2, HWP_OUT_2, QWP_OUT_2,
                                 HWP_TOM_1, QWP_TOM_1, HWP_1, QWP_1, HWP_12, QWP_12)
 import time
 
 if SIM_MODE:
-    from interfaces.mock import MockSMC100Connection as _Connection, MockSMC100Stage as _Stage
+    from autotomo.interfaces.mock import MockSMC100Connection as _Connection, MockSMC100Stage as _Stage
 else:
-    import interfaces.smc100 as _smc
+    import autotomo.interfaces.smc100 as _smc
     _Connection = _smc.SMC100Connection
     _Stage = _smc.SMC100Stage
 

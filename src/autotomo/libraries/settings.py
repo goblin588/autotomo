@@ -17,7 +17,7 @@ class Waveplate:
 
 SIM_MODE = os.environ.get('AUTOTOMO_SIM', '0') == '1'
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 FIG_DIR = PROJECT_ROOT / "data" / "Figures"
 
 qwp_in_oa = 3

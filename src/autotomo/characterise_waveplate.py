@@ -15,9 +15,9 @@ if '--sim' in sys.argv:
 import numpy as np
 import matplotlib.pyplot as plt
 
-import libraries.tomography as tl
-from libraries.plotting import _make_directory_name, createDir
-from libraries.settings import (Waveplate, COMPORT, SIM_MODE,
+import autotomo.libraries.tomography as tl
+from autotomo.libraries.plotting import _make_directory_name, createDir
+from autotomo.libraries.settings import (Waveplate, COMPORT, SIM_MODE,
                                  QWP_IN, QWP_TOM_DUMP, QWP_IN_2, QWP_TOM_1, QWP_OUT_2)
 
 ANGLE_STEP = 1    # degrees between sweep points
@@ -36,9 +36,9 @@ _QWP_REFS: dict[int, Waveplate] = {
 
 def _get_powermeter(wavelength=1550, verbose=True):
     if SIM_MODE:
-        from interfaces.mock import MockPowerMeter
+        from autotomo.interfaces.mock import MockPowerMeter
         return MockPowerMeter(wavelength=wavelength, verbose=verbose)
-    import interfaces.pm100usb as pml
+    import autotomo.interfaces.pm100usb as pml
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 

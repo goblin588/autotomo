@@ -12,9 +12,9 @@ not; this only became testable once R/L (nonzero OUT_2 QWP) were checked
 directly, since H/V/A/D's OUT_2 QWP components are all 0 and sign-blind."""
 import numpy as np
 
-from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
-from libraries.optics import HWP, QWP
-from libraries.polarisation_tuner import _D_TO_V_OUT, _D_TO_V_OUT_LOOP
+from autotomo.libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
+from autotomo.libraries.optics import HWP, QWP
+from autotomo.libraries.polarisation_tuner import _D_TO_V_OUT, _D_TO_V_OUT_LOOP
 
 BASES = ('H', 'V', 'A', 'D', 'R', 'L')
 CONJUGATE = {'H': 'V', 'V': 'H', 'A': 'D', 'D': 'A', 'R': 'L', 'L': 'R'}

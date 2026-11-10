@@ -19,9 +19,9 @@ Getting here took three wrong turns, worth remembering the shape of:
    — command is the physical angle as-is, no negation."""
 import numpy as np
 
-from libraries.basis_vectors import basis_angles, loop_analyzer_angles
-from libraries.optics import HWP, QWP
-from tomo_auto import _measure_fibre, fibre_tomo
+from autotomo.libraries.basis_vectors import basis_angles, loop_analyzer_angles
+from autotomo.libraries.optics import HWP, QWP
+from autotomo.tomo_auto import _measure_fibre, fibre_tomo
 
 BASES = ('H', 'V', 'A', 'D', 'R', 'L')
 H_KET = np.array([[1.0 + 0j], [0.0]])

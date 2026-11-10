@@ -14,10 +14,10 @@ dependencies = [
 ]
 
 [project.scripts]
-tomo-auto               = "tomo_auto:main"
-set-stages              = "set_stage_angles:main"
-characterise-waveplate  = "characterise_waveplate:main"
-home-stages             = "home_stages:main"
+tomo-auto               = "autotomo.tomo_auto:main"
+set-stages              = "autotomo.set_stage_angles:main"
+characterise-waveplate  = "autotomo.characterise_waveplate:main"
+home-stages             = "autotomo.home_stages:main"
 
 [tool.setuptools.packages.find]
 where   = ["src"]

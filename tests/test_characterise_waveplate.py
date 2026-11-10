@@ -4,7 +4,7 @@ I(theta) = i_mean - contrast*cos(4*(theta-theta0)), contrast == i_mean for an
 ideal null (peak = i_mean + contrast, trough = 0)."""
 import numpy as np
 
-from characterise_waveplate import fit_optical_axis, fit_peak_power
+from autotomo.characterise_waveplate import fit_optical_axis, fit_peak_power
 
 
 def _synthetic_sweep(theta0_deg, i_mean=1.0, contrast=0.9, step=2, noise=0.0, seed=0):

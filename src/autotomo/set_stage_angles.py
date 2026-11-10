@@ -1,14 +1,14 @@
 """
 Manually set waveplate stage pairs to a named basis or specific angles.
 """
-import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles, tomo_angles, process_state_angles
-from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
+import autotomo.libraries.tomography as tl
+from autotomo.libraries.basis_vectors import basis_angles, tomo_angles, process_state_angles
+from autotomo.libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                  HWP_TOM_DUMP, QWP_TOM_DUMP,
                                  HWP_TOM_1, QWP_TOM_1, HWP_OUT_2, QWP_OUT_2,
                                  HWP_1, QWP_1, HWP_12, QWP_12,
                                  COMPORT, SIM_MODE, Waveplate)
-from libraries.waveplate_angles import unitaries_angles
+from autotomo.libraries.waveplate_angles import unitaries_angles
 
 # Input-arm pairs are HWP-then-QWP (state prep, H -> basis): basis_angles.
 # Tomography-arm pairs are QWP-then-HWP (analyzer, basis -> H): tomo_angles.
@@ -97,9 +97,9 @@ def _set_single_interactive(wp, angles, idx, label):
 
 def _get_powermeter(wavelength=1550, verbose=True):
     if SIM_MODE:
-        from interfaces.mock import MockPowerMeter
+        from autotomo.interfaces.mock import MockPowerMeter
         return MockPowerMeter(wavelength=wavelength, verbose=verbose)
-    import interfaces.pm100usb as pml
+    import autotomo.interfaces.pm100usb as pml
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 

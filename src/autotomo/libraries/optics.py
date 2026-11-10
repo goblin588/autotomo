@@ -1,6 +1,17 @@
 """
-Library for all mathematical definitions of optics 
+Jones-calculus matrices for the two-path polarisation interferometer.
 
+Basis convention (the one piece of implicit knowledge everything else in
+this codebase relies on): every 4-vector/4x4 matrix here is written in the
+basis [H_path1, V_path1, H_path2, V_path2] — i.e. two polarisation
+components (H, V) per spatial path, path 1 first. A waveplate that
+physically sits on path 1 only acts on the top-left 2x2 quadrant and is the
+identity on the bottom-right quadrant (path 2), and vice versa for a
+path-2 waveplate — see HWP_p1/HWP_p2 below for the embedding this implies.
+`PBS` swaps the V components of the two paths (H1/H2 each pass straight
+through their own path; V1<->V2 couple across, with a factor of 1j) — the
+physical behaviour of a polarising beamsplitter combining the two paths —
+which is why its matrix isn't block-diagonal like the per-path waveplates.
 """
 
 import numpy as np

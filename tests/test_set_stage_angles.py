@@ -2,9 +2,9 @@
 (matching tom1 and single_tomography), not basis_angles, or R/L get swapped
 between manual out2 checks and the automated tomo sweep."""
 import numpy as np
-from libraries.basis_vectors import basis_angles, tomo_angles
-from libraries.optics import HWP, QWP
-from set_stage_angles import _PAIRS
+from autotomo.libraries.basis_vectors import basis_angles, tomo_angles
+from autotomo.libraries.optics import HWP, QWP
+from autotomo.set_stage_angles import _PAIRS
 
 H = np.array([[1], [0]], dtype=complex)
 R = (H - 1j * np.array([[0], [1]], dtype=complex)) / np.sqrt(2)

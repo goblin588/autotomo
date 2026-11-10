@@ -18,16 +18,16 @@ import time
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
-import libraries.data_processing as dpl
-import libraries.plotting as cpl
-import libraries.tomography as tl
-from libraries.angle_menu import angle_menu
-from libraries.basis_vectors import process_state_angles
-from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
+import autotomo.libraries.data_processing as dpl
+import autotomo.libraries.plotting as cpl
+import autotomo.libraries.tomography as tl
+from autotomo.libraries.angle_menu import angle_menu
+from autotomo.libraries.basis_vectors import process_state_angles
+from autotomo.libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT, SIM_MODE)
-from libraries.notifier import notify
-from libraries.polarisation_tuner import polarisation_tuner
-from libraries.waveplate_angles import unitaries_angles
+from autotomo.libraries.notifier import notify
+from autotomo.libraries.polarisation_tuner import polarisation_tuner
+from autotomo.libraries.waveplate_angles import unitaries_angles
 
 ZERO_ANGLES = {k: 0 for k in
               ('q1', 'h1', 'q2', 'h2', 'qf1', 'hf1', 'qf2', 'hf2', 'qin2', 'hin2')}
@@ -106,9 +106,9 @@ def _tomo_stages(path: int):
 
 def _get_powermeter(wavelength=1550, verbose=True):
     if SIM_MODE:
-        from interfaces.mock import MockPowerMeter
+        from autotomo.interfaces.mock import MockPowerMeter
         return MockPowerMeter(wavelength=wavelength, verbose=verbose)
-    import interfaces.pm100usb as pml
+    import autotomo.interfaces.pm100usb as pml
     return pml.PM100USB(wavelength=wavelength, verbose=verbose)
 
 

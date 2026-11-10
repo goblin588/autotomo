@@ -27,7 +27,7 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
 
-    import libraries.plotting as cpl
+    import autotomo.libraries.plotting as cpl
 
     return Path, cpl, csv, mo, np, plt
 
@@ -106,7 +106,7 @@ def _(ROOT, find_data_files, mo):
     return (file_picker,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(file_picker, load_data_file, mo):
     mo.stop(file_picker.value is None, mo.md("No data file selected, or none found."))
     record = load_data_file(file_picker.value)
@@ -119,7 +119,7 @@ def _(file_picker, load_data_file, mo):
     return (record,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, record):
     _is_fibre = bool(record["plot_type"] and "Fibre" in record["plot_type"])
     path_selector = mo.ui.radio(options=["2", "1"], value="2", label="Output path")

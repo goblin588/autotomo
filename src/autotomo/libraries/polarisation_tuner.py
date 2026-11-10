@@ -10,9 +10,9 @@ import sys
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
-import libraries.tomography as tl
-from libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
-from libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
+import autotomo.libraries.tomography as tl
+from autotomo.libraries.basis_vectors import basis_angles, tomo_angles, loop_analyzer_angles
+from autotomo.libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2,
                                 HWP_OUT_2, QWP_OUT_2, COMPORT)
 
 

@@ -8,9 +8,9 @@ math (zero noise) and confirm fit_m1 recovers it.
 """
 import numpy as np
 
-import libraries.plotting as cpl
-from libraries.tomography import HVAD_BASES
-from libraries.waveplate_angles import U_3_angles, U_4_angles
+import autotomo.libraries.plotting as cpl
+from autotomo.libraries.tomography import HVAD_BASES
+from autotomo.libraries.waveplate_angles import U_3_angles, U_4_angles
 
 
 def _synthetic_data(angles: dict, true_m1: float, path: int = 2, bases=HVAD_BASES) -> dict:

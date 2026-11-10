@@ -1,5 +1,5 @@
 import numpy as np
-from libraries.waveplate_angles import unitaries_angles
+from autotomo.libraries.waveplate_angles import unitaries_angles
 
 def angle_menu():
     angles = {'q1': 0,

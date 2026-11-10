@@ -10,10 +10,10 @@ import sys
 if '--sim' in sys.argv:
     os.environ['AUTOTOMO_SIM'] = '1'
 
-import libraries.tomography as tl
-from libraries.basis_vectors import process_state_angles
-from libraries.settings import HWP_IN, QWP_IN, COMPORT, SIM_MODE
-from libraries.waveplate_angles import unitaries_angles
+import autotomo.libraries.tomography as tl
+from autotomo.libraries.basis_vectors import process_state_angles
+from autotomo.libraries.settings import HWP_IN, QWP_IN, COMPORT, SIM_MODE
+from autotomo.libraries.waveplate_angles import unitaries_angles
 
 
 def main():
