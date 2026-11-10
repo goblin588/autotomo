@@ -1,5 +1,10 @@
 # autotomo
 
+![tests](https://img.shields.io/badge/tests-19%20passing-brightgreen)
+![python](https://img.shields.io/badge/python-3.11%2B-blue)
+![sim mode](https://img.shields.io/badge/sim%20mode-%E2%9C%93-informational)
+![hardware](https://img.shields.io/badge/hardware-Newport%20SMC100%20%2B%20Thorlabs%20PM100USB-lightgrey)
+
 Automated polarisation quantum-process-tomography lab control. Drives 14
 Newport SMC100 motorised rotation stages (7 HWP/QWP waveplate pairs) and a
 Thorlabs PM100USB power meter to characterise a photonic polarisation
