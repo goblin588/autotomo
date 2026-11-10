@@ -156,7 +156,8 @@ def compute_fit(data: dict, angles: dict, path: int = 2, identity: bool = False)
 
 
 def fit_m1(measurements: list[tuple[dict, dict]], path: int = 2,
-          coarse_points: int = 361, refine_iters: int = 3) -> tuple[float, float]:
+          coarse_points: int = 361, refine_iters: int = 3,
+          bounds: tuple[float, float] = (0, 2 * np.pi)) -> tuple[float, float]:
     """Find the single shared m1 (interferometer mirror phase, radians,
     periodic over [0, 2*pi)) that minimises the TOTAL compute_fit residual
     summed across every (data, angles) pair in `measurements`, holding every
@@ -166,9 +167,11 @@ def fit_m1(measurements: list[tuple[dict, dict]], path: int = 2,
     m1 enters getUnitary twice (once via M1, once via M3, multiplied in
     sequence), so the fit-vs-m1 landscape can have more than one local
     minimum (first- and second-harmonic content) — a brute-force grid scan
-    over the full period avoids the local-minima trap a purely local
-    optimizer (golden-section, gradient descent) could fall into, then a
-    shrinking local refine sharpens the result. No scipy needed.
+    over `bounds` (the full period by default) avoids the local-minima trap
+    a purely local optimizer (golden-section, gradient descent) could fall
+    into, then a shrinking local refine sharpens the result. Pass a
+    narrower `bounds` to restrict the search when the mirror phase is
+    known to lie near a particular value. No scipy needed.
 
     Returns (best_m1, best_total_fit).
     """
@@ -176,14 +179,15 @@ def fit_m1(measurements: list[tuple[dict, dict]], path: int = 2,
         return sum(compute_fit(data, {**angles, 'm1': m1}, path=path)
                   for data, angles in measurements)
 
-    grid = np.linspace(0, 2 * np.pi, coarse_points, endpoint=False)
+    lo, hi = bounds
+    grid = np.linspace(lo, hi, coarse_points)
     fits = np.array([total_fit(m) for m in grid])
     best_idx = int(np.argmin(fits))
     best_m1, best_fit = float(grid[best_idx]), float(fits[best_idx])
 
-    span = 2 * np.pi / coarse_points
+    span = (hi - lo) / coarse_points
     for _ in range(refine_iters):
-        local_grid = np.linspace(best_m1 - span, best_m1 + span, 21) % (2 * np.pi)
+        local_grid = np.clip(np.linspace(best_m1 - span, best_m1 + span, 21), lo, hi)
         local_fits = [total_fit(m) for m in local_grid]
         idx = int(np.argmin(local_fits))
         if local_fits[idx] < best_fit:

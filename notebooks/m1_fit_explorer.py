@@ -162,11 +162,14 @@ def _(fit_button, identity_toggle, mo):
 
 
 @app.cell
-def _(cpl, fit_button, identity_toggle, mo, path_selector, plt, record):
+def _(cpl, fit_button, identity_toggle, mo, np, path_selector, plt, record):
     mo.stop(identity_toggle.value or not fit_button.value)
 
     _path = int(path_selector.value)
-    best_m1, best_fit = cpl.fit_m1([(record["data"], record["angles"])], path=_path)
+    best_m1, best_fit = cpl.fit_m1(
+        [(record["data"], record["angles"])], path=_path,
+        bounds=(np.pi - np.pi / 3, np.pi + np.pi / 3),
+    )
     fitted_angles = {**record["angles"], "m1": best_m1}
 
     cpl.plot_characterisation(
