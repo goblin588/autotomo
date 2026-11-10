@@ -1,6 +1,5 @@
 """
-filename: Data-Processor.py
-
+Bespoke CSV parsing and multi-run averaging for saved tomography data.
 """
 import ast
 import re
