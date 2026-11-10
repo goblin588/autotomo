@@ -43,9 +43,7 @@ def _(mo):
 @app.cell
 def _(Path, csv, np):
     ROOT = Path(__file__).resolve().parents[1]
-    # Old data lived under figures/ and archive/Archived Figures/ before the
-    # Figures/ layout settled; all three are scanned so "old data" just works.
-    DATA_ROOTS = [ROOT / "Figures", ROOT / "figures", ROOT / "archive" / "Archived Figures"]
+    DATA_ROOTS = [ROOT / "Figures"]
 
     # Angle dict keys renamed at some point (h12/q12 -> h2/q2); m0 was dropped
     # entirely (no longer a free parameter in getUnitary). Old files keep the
