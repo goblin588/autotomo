@@ -34,7 +34,6 @@ uv sync
 |--------|-----------------|---------|
 | `src/autotomo/tomo_auto.py` | `tomo-auto` | Main tomography menu (see below) |
 | `src/autotomo/set_stage_angles.py` | `set-stages` | Manually move waveplate stage pairs to a named basis/angle, set a unitary's fixed plates, or check polarisation visibility |
-| `src/autotomo/measurement.py` | — | Set input waveplates to the s0 state for a given unitary |
 | `src/autotomo/characterise_waveplate.py` | `characterise-waveplate` | Fit a single waveplate's optical axis / peak power |
 | `src/autotomo/home_stages.py` | `home-stages` | Home every motor stage |
 
@@ -85,7 +84,6 @@ src/autotomo/
 │                           #   compute_fit, fit_m1 — pure numpy, no matplotlib,
 │                           #   no hardware. Importable standalone.
 ├── tomo_auto.py            # Main entry point — tomography menu
-├── measurement.py          # Set input waveplates to s0 state
 ├── set_stage_angles.py     # Manually move stage pairs / set a unitary / check visibility
 ├── characterise_waveplate.py
 ├── home_stages.py
