@@ -19,5 +19,8 @@ src/figures/
 .vscode/
 .idea/
 
+# marimo
+__marimo__/
+
 # Dev notes (local only)
 CLAUDE.md
