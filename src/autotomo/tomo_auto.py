@@ -183,41 +183,26 @@ def _offer_m1_fit(measurements, path, note, show_plot=False):
 
 
 def run_tomo(angles, path, bases, plot_type, show_plot=False, angle_table=None, note=None,
-            label=None, progress=None, offer_fit=True,
-            measure_fn=_measure_tomo, reads_per_basis=len(tl.FULL_BASES),
-            plot_fn=cpl.plot_characterisation):
+            label=None, progress=None, offer_fit=True):
     """Tomo each input basis in bases, measuring quietly behind a live
     progress spinner, then plot against theory and notify.
 
     label: text shown before the spinner's (%) and dots (default: plot_type).
     progress: a _Progress counter to share across several run_tomo calls,
     e.g. one shared % for a whole batch; defaults to a fresh one scoped to
-    just this call (len(bases) x reads_per_basis measurements).
+    just this call (len(bases) x 6 output-basis measurements).
     offer_fit: ask (and run) an m1 fit against this measurement's data once
     it's done. characterise_all sets this False and offers its own
     batch-wide fit after the whole run instead.
-    measure_fn/reads_per_basis: swap in _measure_power_scan + 1 for the
-    no-output-polarizer case (a single read per basis, no 6-basis sweep).
-    plot_fn: defaults to plot_characterisation; pass None when the result
-    isn't basis-sweep shaped (e.g. a power scan) to skip plotting/fitting
-    here (normalise_full_tomo_data/plot_characterisation assume a nested
-    {state: {H:.., V:.., ...}} shape and would crash on flat data) — the
-    caller plots it itself instead.
     """
     if progress is None:
-        progress = _Progress(len(bases) * reads_per_basis)
+        progress = _Progress(len(bases) * 6)
     label = label if label is not None else plot_type
     label_fn = lambda: f"Measuring {label} ({progress.pct()}%) "
 
-    res = _run_quiet_with_spinner(label_fn, measure_fn, angles, path, bases,
+    res = _run_quiet_with_spinner(label_fn, _measure_tomo, angles, path, bases,
                                   angle_table=angle_table, on_progress=progress.tick)
-
-    if plot_fn is None:
-        notify(f"{plot_type} done — {angles['title']}",
-               title=f"{plot_type} complete", priority="default")
-        return None, res
-
-    fit = _quiet(plot_fn, res, graph_title=angles['title'], angles=angles,
+    fit = _quiet(cpl.plot_characterisation, res, graph_title=angles['title'], angles=angles,
                 plot_type=plot_type, show_plot=show_plot, path=path, note=note)
     print(f"{label_fn()}fit: {fit:.4f}")
     notify(f"{plot_type} tomo done — fit: {fit:.4f} — {angles['title']}",
@@ -350,14 +335,15 @@ def s_tomo(angles, path):
     is always the full unitaries_angles[N] preset (built by main()'s 'S'
     dispatch, same as characterise_all) — never angle_menu's manual
     per-waveplate entry, since a custom config wouldn't match the s_j prep
-    angles process_state_angles was derived against. Always plots the
-    aggregate exit-bin distribution (with its fit shown on the plot). With
-    the output polarizer present, also runs the full 6-basis output
-    tomography and reports a per-state fit against the s0 reference state —
-    every exit is expected to reproduce s0's polarization regardless of
-    which loop iteration it came from — printed only, not plotted. With no
-    polarizer, skips the output-tomography sweep (meaningless without one
-    downstream to analyze against) in favour of one direct power reading
+    angles process_state_angles was derived against. Measures directly
+    (not behind the usual quiet spinner), so each power reading prints as
+    it's taken. Always plots the aggregate exit-bin distribution (with its
+    fit shown on the plot). If output tomography is requested, also runs
+    the full 6-basis output sweep and reports a per-state fit against the
+    s0 reference state — every exit is expected to reproduce s0's
+    polarization regardless of which loop iteration it came from — printed
+    only, not plotted. Otherwise (e.g. no output polarizer installed,
+    making the 6-basis sweep meaningless), just one direct power reading
     per state."""
     N = angles.get('N', '3')
     s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
@@ -365,17 +351,15 @@ def s_tomo(angles, path):
         print(f"No s-states defined for N={N}.")
         return
 
-    polarizer = input("Output polarizer present? [Y/n]: ").strip().lower() != 'n'
-    if polarizer:
-        _, res = run_tomo(angles, path, s_keys, plot_type=f'S{N}', angle_table=process_state_angles,
-                          plot_fn=None)
+    output_tomo = input("Perform output tomography? [Y/n]: ").strip().lower() != 'n'
+    if output_tomo:
+        res = _measure_tomo(angles, path, s_keys, angle_table=process_state_angles)
         output_fits = cpl.output_tomography_fit(res, angles, N, path=path)
         print("Output-tomography fit per state (vs s0 reference):")
         for state, fit in output_fits.items():
             print(f"  {state}: {fit:.4f}")
     else:
-        _, res = run_tomo(angles, path, s_keys, plot_type=f'S{N}_scan', angle_table=process_state_angles,
-                          measure_fn=_measure_power_scan, reads_per_basis=1, plot_fn=None)
+        res = _measure_power_scan(angles, path, s_keys, angle_table=process_state_angles)
 
     _quiet(cpl.plot_exit_distribution, res, angles=angles, N=N, path=path,
           graph_title=angles['title'], plot_type=f'S{N}_exit', show_plot=True)
@@ -478,8 +462,9 @@ def main():
                 print(f"Invalid unitary {N!r}. Valid: {', '.join(valid_N)}")
                 break
             angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
-            _p = input("Output path [1/2, default 2]: ").strip()
-            s_tomo(angles, path=1 if _p == '1' else 2)
+            # TOM_1 (path 1) is the real detector path for s-state exit
+            # measurements — not a choice, so don't ask.
+            s_tomo(angles, path=1)
             break
 
         angles = angle_menu()
