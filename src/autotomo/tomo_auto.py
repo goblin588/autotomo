@@ -345,28 +345,23 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
            title="Fibre tomo complete", priority="default")
 
 
-def s_tomo(path):
-    """Tomo all s{j}_{N} process states for the chosen unitary N: always
-    plots the aggregate exit-bin distribution (with its fit shown on the
-    plot). With the output polarizer present, also runs the full 6-basis
-    output tomography and reports a per-state fit against the s0 reference
-    state — every exit is expected to reproduce s0's polarization
-    regardless of which loop iteration it came from — printed only, not
-    plotted. With no polarizer, skips the output-tomography sweep
-    (meaningless without one downstream to analyze against) in favour of
-    one direct power reading per state.
-
-    Which unitary N determines both the s-state prep angles (process_state_angles
-    is keyed by N) and the internal-optics configuration the theory is built
-    from, so it's asked here directly — using the full unitaries_angles[N]
-    preset — rather than trusting angle_menu's generic angles to match N."""
-    valid_N = sorted({k.split('_')[1] for k in process_state_angles}, key=int)
-    N = input(f"Which unitary? ({'/'.join(valid_N)}): ").strip()
-    if N not in valid_N:
-        print(f"No s-states defined for N={N!r}. Valid: {', '.join(valid_N)}")
-        return
-    angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+def s_tomo(angles, path):
+    """Tomo all s{j}_{N} process states for the chosen unitary N (N and the
+    internal-optics angles both come from angle_menu's existing "which N
+    unitary" + "U" questions — no need to ask again here): always plots the
+    aggregate exit-bin distribution (with its fit shown on the plot). With
+    the output polarizer present, also runs the full 6-basis output
+    tomography and reports a per-state fit against the s0 reference state —
+    every exit is expected to reproduce s0's polarization regardless of
+    which loop iteration it came from — printed only, not plotted. With no
+    polarizer, skips the output-tomography sweep (meaningless without one
+    downstream to analyze against) in favour of one direct power reading
+    per state."""
+    N = angles.get('N', '3')
     s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+    if not s_keys:
+        print(f"No s-states defined for N={N}.")
+        return
 
     polarizer = input("Output polarizer present? [Y/n]: ").strip().lower() != 'n'
     if polarizer:
@@ -483,7 +478,7 @@ def main():
         elif choice == '6':
             run_tomo(angles, path, tl.FULL_BASES, 'Full6')
         elif choice == 'S':
-            s_tomo(path)
+            s_tomo(angles, path)
         elif choice == 'M':
             multi_run(angles, path)
         elif choice == 'P':
