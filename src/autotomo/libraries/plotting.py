@@ -1,10 +1,10 @@
 """
 Plotting and file-saving for setup characterisations.
 
-The physics model (getUnitary/UnitaryToProb/compute_fit/fit_m1) lives in
-autotomo.theory — this file only draws/saves. Re-exports the theory names
-most callers here already use via the `cpl` alias, so existing call sites
-(tomo_auto.py, tests) keep working unchanged.
+The physics model (getUnitary/UnitaryToProb/compute_fit/fit_m1/
+fit_mirror_phases) lives in autotomo.theory — this file only draws/saves.
+Re-exports the theory names most callers here already use via the `cpl`
+alias, so existing call sites (tomo_auto.py, tests) keep working unchanged.
 """
 
 import csv
@@ -15,10 +15,12 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from autotomo.libraries.basis_vectors import basis_vectors
+from autotomo.libraries.basis_vectors import basis_vectors, process_state_angles
 from autotomo.theory import (  # noqa: F401 (re-exported for `cpl.*` callers)
-    compute_fit, fit_m1, getUnitary, input_state_vector, normalise_pair,
-    normalise_err, normalise_measurements, normalise_full_tomo_data,
+    compute_fit, fit_m1, fit_mirror_phases, getUnitary, input_state_vector,
+    normalise_pair, normalise_err, normalise_measurements,
+    normalise_full_tomo_data, normalise_set, normalise_set_err,
+    path_occupancy_prob, theory_exit_distribution, output_tomography_fit,
     UnitaryToProb, _unitary_from_angles,
 )
 
@@ -26,14 +28,15 @@ from autotomo.theory import (  # noqa: F401 (re-exported for `cpl.*` callers)
 # ── Private plot helpers ──────────────────────────────────────────────────────
 
 def _make_directory_name(plot_type: str | None = None, note: str | None = None) -> str:
+    day_dir = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d")
+    if note is not None:
+        day_dir = f'{day_dir}/{note}_Figures'
     if plot_type is not None:
         name = datetime.datetime.now().strftime(
-            f"Figures/Figures_%Y-%m-%d/{plot_type}_Figures_%Y-%m-%d/%Y-%m-%d__%H-%M"
+            f"{day_dir}/{plot_type}_Figures_%Y-%m-%d/%Y-%m-%d__%H-%M"
         )
     else:
-        name = datetime.datetime.now().strftime("Figures/Figures_%Y-%m-%d/%Y-%m-%d__%H-%M")
-    if note is not None:
-        name = f'{note}_{name}'
+        name = datetime.datetime.now().strftime(f"{day_dir}/%Y-%m-%d__%H-%M")
     return name
 
 
@@ -155,6 +158,79 @@ def plot_characterisation(data: dict, graph_title: str, angles: dict,
                   plot_type, save_plot, save_data)
 
     print(f"Measured value solution fit: {fit:.4f}")
+    if show_plot:
+        plt.show()
+    return fit
+
+
+_EXIT_PAIRS = (("H", "V"), ("A", "D"), ("R", "L"))
+
+
+def _total_power_nested(entry: dict) -> tuple[float, float]:
+    """Average the three complementary-pair sums (H+V, A+D, R+L) to
+    recover total exit power with lower noise than any single pair."""
+    sums, errs = [], []
+    for k1, k2 in _EXIT_PAIRS:
+        v1, e1 = entry[k1]
+        v2, e2 = entry[k2]
+        sums.append(v1 + v2)
+        errs.append(math.hypot(e1, e2))
+    val = sum(sums) / len(sums)
+    err = math.sqrt(sum(e ** 2 for e in errs)) / len(errs)
+    return val, err
+
+
+def plot_exit_distribution(res: dict, angles: dict, N: str, graph_title: str,
+                           plot_type: str | None = None, note: str | None = None,
+                           save_plot: bool = True, save_data: bool = True,
+                           show_plot: bool = True, path: int = 2) -> float:
+    """
+    Plot the normalised exit-bin distribution across all s{j}_{N} process
+    states: one gold bar per state (measured, with errorbar) overlaid with
+    a dashed-outline theory bar, styled after the sibling stochprocsim
+    project's output-bin bar chart (not imported from it).
+
+    res shape is auto-detected per state:
+      - nested {state: {output_basis: (power, err)}} (output polarizer
+        present — a full_tomography-style result): reduced via
+        _total_power_nested.
+      - flat {state: (power, err)} (no output polarizer —
+        input_power_scan's result): used directly.
+    """
+    labels = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+    nested = isinstance(res[labels[0]], dict)
+    raw = {k: (_total_power_nested(res[k]) if nested else res[k]) for k in labels}
+
+    values = {k: v for k, (v, _) in raw.items()}
+    normalized_vals = normalise_set(values)
+    normalized_errs = normalise_set_err(raw, normalized_vals)
+    theory_dist = theory_exit_distribution(angles, N, path=path)
+
+    measured = [normalized_vals[k] for k in labels]
+    errs = [normalized_errs[k] for k in labels]
+    theory_vals = [theory_dist[k] for k in labels]
+    x = np.arange(len(labels))
+    fit = float(np.linalg.norm(np.array(measured) - np.array(theory_vals)))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(x, measured, color='gold', edgecolor='black', label='Measured')
+    ax.errorbar(x, measured, yerr=errs, fmt='none', ecolor='black', capsize=4)
+    ax.bar(x, theory_vals, facecolor='none', edgecolor='black',
+          linestyle=':', linewidth=2, label='Theory')
+    ax.set_xlabel('Output bin')
+    ax.set_ylabel('Probability')
+    ax.set_xticks(x)
+    ax.set_xticklabels([f's{j}' for j in range(len(labels))])
+    ax.set_ylim(0, 1)
+    ax.set_title(f'{graph_title} — fit: {fit:.4f}')
+    ax.legend()
+
+    directory_name = _make_directory_name(plot_type, note)
+    normalized_data = {k: [normalized_vals[k], normalized_errs[k]] for k in labels}
+    _save_outputs(fig, raw, normalized_data, angles, graph_title, directory_name,
+                 plot_type, save_plot, save_data)
+
+    print(f"Exit-distribution fit: {fit:.4f}")
     if show_plot:
         plt.show()
     return fit

@@ -92,6 +92,32 @@ def input_tomography(qwp, hwp, hwp_in, qwp_in, powermeter, smc_port,
     return res
 
 
+def input_power_scan(hwp_in, qwp_in, powermeter, smc_port, bases: tuple,
+                     angle_table: dict | None = None, on_progress=None,
+                     connection=None) -> dict:
+    """For each input basis in bases, move the input stage then take ONE
+    direct power read — no output-analyzer sweep. Use when there's no
+    output polarizer: every output-basis read would be identical anyway,
+    so a single raw read per input state already is the total power.
+    angle_table maps basis -> [hwp, qwp] prep angles (default: basis_angles;
+    pass process_state_angles to scan the s{j}_{N} states).
+    Returns {basis: (power, err)}.
+    """
+    table = angle_table if angle_table is not None else basis_angles
+    res = {}
+    for basis in bases:
+        print(f"Setting New Input Basis : |{basis}>")
+        move_stage(hwp_in, table[basis][0], smc_port, connection=connection)
+        move_stage(qwp_in, table[basis][1], smc_port, connection=connection)
+        time.sleep(0.1)
+        pwr, err = powermeter.read(n=N_READS)
+        print(f"Power: {round(pwr * 1000, 2)} mW")
+        res[basis] = (pwr, err)
+        if on_progress is not None:
+            on_progress()
+    return res
+
+
 def single_tomography(qwp, hwp, powermeter, smc_port, analyzer_table: dict | None = None,
                       on_progress=None, connection=None) -> dict:
     """Measure all 6 output states (HVADRL) for the current input state."""
