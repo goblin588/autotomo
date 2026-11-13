@@ -221,7 +221,7 @@ def plot_exit_distribution(res: dict, angles: dict, N: str, graph_title: str,
     ax.set_ylabel('Probability')
     ax.set_xticks(x)
     ax.set_xticklabels([f's{j}' for j in range(len(labels))])
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 1.1 * max(max(measured), max(theory_vals)))
     ax.set_title(f'{graph_title} — fit: {fit:.4f}')
     ax.legend()
 
