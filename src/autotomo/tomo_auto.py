@@ -346,9 +346,11 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
 
 
 def s_tomo(angles, path):
-    """Tomo all s{j}_{N} process states for the chosen unitary N (N and the
-    internal-optics angles both come from angle_menu's existing "which N
-    unitary" + "U" questions — no need to ask again here): always plots the
+    """Tomo all s{j}_{N} process states for the chosen unitary N. `angles`
+    is always the full unitaries_angles[N] preset (built by main()'s 'S'
+    dispatch, same as characterise_all) — never angle_menu's manual
+    per-waveplate entry, since a custom config wouldn't match the s_j prep
+    angles process_state_angles was derived against. Always plots the
     aggregate exit-bin distribution (with its fit shown on the plot). With
     the output polarizer present, also runs the full 6-basis output
     tomography and reports a per-state fit against the s0 reference state —
@@ -465,6 +467,21 @@ def main():
             characterise_all(path=1 if _p == '1' else 2)
             break
 
+        if choice == 'S':
+            # s-state measurements always use the configured unitary as-is
+            # (like characterise_all) — no manual per-waveplate angle_menu
+            # entry, since a custom config wouldn't match the s_j prep
+            # angles process_state_angles was derived against.
+            valid_N = sorted({k.split('_')[1] for k in process_state_angles}, key=int)
+            N = input(f"Which unitary? ({'/'.join(valid_N)}): ").strip()
+            if N not in valid_N:
+                print(f"Invalid unitary {N!r}. Valid: {', '.join(valid_N)}")
+                break
+            angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
+            _p = input("Output path [1/2, default 2]: ").strip()
+            s_tomo(angles, path=1 if _p == '1' else 2)
+            break
+
         angles = angle_menu()
         _p = input("Output path [1/2, default 2]: ").strip()
         path = 1 if _p == '1' else 2
@@ -477,8 +494,6 @@ def main():
             run_tomo(angles, path, tl.HVAD_BASES, 'Full')
         elif choice == '6':
             run_tomo(angles, path, tl.FULL_BASES, 'Full6')
-        elif choice == 'S':
-            s_tomo(angles, path)
         elif choice == 'M':
             multi_run(angles, path)
         elif choice == 'P':
