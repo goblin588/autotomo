@@ -149,12 +149,52 @@ def check_polarisation():
             print(f"  Visibility ({send_basis}/{null_basis}): {visibility:.2f}%")
 
 
+def check_hv():
+    """HV symmetry check: send H, then V, with every other waveplate zeroed
+    so the exit lands entirely on the chosen path, and read the power meter
+    raw (no output-basis analysis) -- H and V should come out the same
+    power.
+
+    Path 2 is the all-zero configuration (loop keeps everything circulating
+    there). Path 1 needs HWP_1/HWP_12 at 45 deg as well to reroute the exit;
+    their QWPs, and everything else, stay at 0.
+    """
+    path = input("Which path to check (1/2): ").strip()
+    if path not in ('1', '2'):
+        print("  Unrecognised path — skipping.")
+        return
+
+    print("  Zeroing every waveplate...")
+    for wp in _STAGE_MAP.values():
+        tl.move_stage(wp, 0, COMPORT)
+
+    if path == '1':
+        print("  Setting HWP_1 / HWP_12 to 45° to route the exit to path 1...")
+        tl.move_stage(HWP_1, 45, COMPORT)
+        tl.move_stage(HWP_12, 45, COMPORT)
+
+    hwp_in, qwp_in, _, _ = _PAIRS['in']
+    readings = {}
+    with _get_powermeter() as pm:
+        for basis in ('H', 'V'):
+            tl.move_stage(hwp_in, basis_angles[basis][0], COMPORT)
+            tl.move_stage(qwp_in, basis_angles[basis][1], COMPORT)
+            val, _ = pm.read(n=tl.N_READS)
+            readings[basis] = val
+            print(f"  Send {basis}: {val * 1000:.4f} mW")
+
+    biggest = max(readings.values())
+    match = min(readings.values()) / biggest * 100 if biggest else 0.0
+    print(f"  H/V power match: {match:.2f}% (should be ~100%)")
+
+
 def main():
     prompt = (
         "Pair (eg. in), 'all', stage name (eg. h1), "
         f"stage number ({min(_STAGE_MAP)}-{max(_STAGE_MAP)}), "
         f"'u3'/'u4'/'u5'/'u6' (set that unitary's internal waveplates), "
         "'vis' (check polarisation visibility), "
+        "'hv' (check H/V power symmetry), "
         "'0' (zero all waveplates to their OA), or 'done' to quit: "
     )
     while True:
@@ -181,6 +221,8 @@ def main():
             tl.set_fixed_waveplates(unitaries_angles[val[1:]])
         elif val == 'vis':
             check_polarisation()
+        elif val == 'hv':
+            check_hv()
         else:
             try:
                 stage_id = int(val)
