@@ -149,6 +149,9 @@ def check_polarisation():
             print(f"  Visibility ({send_basis}/{null_basis}): {visibility:.2f}%")
 
 
+_HV_CHECK_N_READS = 100  # much longer than tl.N_READS (50) -- tighter stats for this check
+
+
 def check_hv():
     """HV symmetry check: send H, then V, with every other waveplate zeroed
     so the exit lands entirely on the chosen path -- H and V should come
@@ -191,7 +194,7 @@ def check_hv():
             if has_pbs:
                 tl.move_stage(hwp_out, tomo_angles[basis][0], COMPORT)
                 tl.move_stage(qwp_out, tomo_angles[basis][1], COMPORT)
-            val, _ = pm.read(n=tl.N_READS)
+            val, _ = pm.read(n=_HV_CHECK_N_READS)
             readings[basis] = val
             print(f"  Send {basis}" + (f", analyze {basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
 
