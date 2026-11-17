@@ -331,21 +331,48 @@ def fibre_tomo(bases=tl.FULL_BASES, loop=False):
            title="Fibre tomo complete", priority="default")
 
 
+def s_tomo_output(angles, path):
+    """Full polarisation tomography of the output for s_j process states —
+    exactly what HVAD/F/6 do via run_tomo, with the s_j states standing in
+    for the input basis: measures each state, plots measured vs. theory
+    per output basis (same bar chart as H/V/.../Full modes). Different
+    question from the exit-bin distribution (see s_tomo, mode 'B') — this
+    is "does each s_j state's output polarisation look right", that one is
+    "how is power distributed across loop passes"."""
+    N = angles.get('N', '3')
+    s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
+    if not s_keys:
+        print(f"No s-states defined for N={N}.")
+        return
+    j = input(f"Which s state for N={N}? (0-{len(s_keys) - 1}, or Enter for all): ").strip()
+    if j:
+        key = f's{j}_{N}'
+        if key not in process_state_angles:
+            print(f"No state {key}. Options: {', '.join(s_keys)}")
+            return
+        bases = (key,)
+    else:
+        bases = s_keys
+    run_tomo(angles, path, bases, plot_type=f'S{N}', angle_table=process_state_angles)
+
+
 def s_tomo(angles, path):
-    """Tomo all s{j}_{N} process states for the chosen unitary N. `angles`
-    is always the full unitaries_angles[N] preset (built by main()'s 'S'
-    dispatch, same as characterise_all) — never angle_menu's manual
-    per-waveplate entry, since a custom config wouldn't match the s_j prep
-    angles process_state_angles was derived against. Measures directly
-    (not behind the usual quiet spinner), so each power reading prints as
-    it's taken. Always plots the aggregate exit-bin distribution (with its
-    fit shown on the plot). If output tomography is requested, also runs
-    the full 6-basis output sweep and reports a per-state fit against the
-    s0 reference state — every exit is expected to reproduce s0's
-    polarization regardless of which loop iteration it came from — printed
-    only, not plotted. Otherwise (e.g. no output polarizer installed,
-    making the 6-basis sweep meaningless), just one direct power reading
-    per state."""
+    """Tomo all s{j}_{N} process states for the chosen unitary N — the
+    output-bins view ('B'): always plots the aggregate exit-bin
+    distribution, optionally also fits full output tomography against it.
+    `angles` is always the full unitaries_angles[N] preset (built by
+    main()'s 'S'/'B' dispatch, same as characterise_all) — never
+    angle_menu's manual per-waveplate entry, since a custom config
+    wouldn't match the s_j prep angles process_state_angles was derived
+    against. Measures directly (not behind the usual quiet spinner), so
+    each power reading prints as it's taken. Always plots the aggregate
+    exit-bin distribution (with its fit shown on the plot). If output
+    tomography is requested, also runs the full 6-basis output sweep and
+    reports a per-state fit against the s0 reference state — every exit is
+    expected to reproduce s0's polarization regardless of which loop
+    iteration it came from — printed only, not plotted. Otherwise (e.g. no
+    output polarizer installed, making the 6-basis sweep meaningless),
+    just one direct power reading per state."""
     N = angles.get('N', '3')
     s_keys = tuple(k for k in process_state_angles if k.endswith(f'_{N}'))
     if not s_keys:
@@ -462,7 +489,8 @@ def main():
             "  HV            — H + V only\n"
             "  F             — HVAD (4 input states)\n"
             "  6             — HVADRL (all 6 input states)\n"
-            "  S             — s_j process state tomo\n"
+            "  S             — s_j process state output tomo (per-basis fit)\n"
+            "  B             — s_j process state output-bins tomo\n"
             "  FIB           — fibre tomo (straight or loop path, unitary = identity)\n"
             "  M             — multi-run\n"
             "  T             — polarisation tuner\n"
@@ -475,8 +503,8 @@ def main():
         if choice == 'T':
             polarisation_tuner()
             break
-        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'FIB', 'M', 'P', 'CA', 'C'):
-            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, FIB, M, T, P, CA, C")
+        if choice not in (*tl.FULL_BASES, 'HV', 'F', '6', 'S', 'B', 'FIB', 'M', 'P', 'CA', 'C'):
+            print("Valid inputs: H, V, A, D, R, L, HV, F, 6, S, B, FIB, M, T, P, CA, C")
             continue
 
         if choice == 'FIB':
@@ -494,7 +522,7 @@ def main():
             check_hv_coupling(path=1 if _p == '1' else 2)
             break
 
-        if choice == 'S':
+        if choice in ('S', 'B'):
             # s-state measurements always use the configured unitary as-is
             # (like characterise_all) — no manual per-waveplate angle_menu
             # entry, since a custom config wouldn't match the s_j prep
@@ -507,7 +535,10 @@ def main():
             angles = {**unitaries_angles[N], 'title': 'U', 'N': N}
             # TOM_1 (path 1) is the real detector path for s-state exit
             # measurements — not a choice, so don't ask.
-            s_tomo(angles, path=1)
+            if choice == 'S':
+                s_tomo_output(angles, path=1)
+            else:
+                s_tomo(angles, path=1)
             break
 
         angles = angle_menu()
