@@ -22,7 +22,7 @@ import autotomo.libraries.data_processing as dpl
 import autotomo.libraries.plotting as cpl
 import autotomo.libraries.tomography as tl
 from autotomo.libraries.angle_menu import angle_menu
-from autotomo.libraries.basis_vectors import process_state_angles, basis_angles
+from autotomo.libraries.basis_vectors import process_state_angles, basis_angles, tomo_angles
 from autotomo.libraries.settings import (HWP_IN, QWP_IN, HWP_IN_2, QWP_IN_2, HWP_TOM_1, QWP_TOM_1,
                                 HWP_OUT_2, QWP_OUT_2, HWP_1, QWP_1, HWP_12, QWP_12,
                                 COMPORT, SIM_MODE)
@@ -432,14 +432,24 @@ def multi_run(angles, path: int = 2):
 
 def check_hv_coupling(path: int):
     """HV symmetry check: send H, then V, with every interferometer
-    waveplate zeroed so the exit lands entirely on the chosen path, and
-    read the power meter raw (no output-analyzer sweep) -- H and V should
-    come out the same power.
+    waveplate zeroed so the exit lands entirely on the chosen path -- H and
+    V should come out the same power.
 
     Path 2 is the all-zero configuration (loop keeps everything circulating
     there). Path 1 additionally needs HWP_1/HWP_12 at 45 deg to reroute the
     exit; their QWPs, and everything else, stay at 0.
+
+    With an output PBS installed, the power meter only sees one of its two
+    ports, so the output analyzer (TOM_1 for path 1, OUT_2 for path 2) is
+    swept to match each basis as it's sent (send H, analyze H; send V,
+    analyze V) -- otherwise half the light misses the detector regardless
+    of HV symmetry. Without a PBS there's nothing to analyze into, so the
+    analyzer stays at its zeroed pass-through angle and the power meter
+    reads everything.
     """
+    has_pbs = input("Output PBS installed? [y/N]: ").strip().lower() == 'y'
+    hwp_out, qwp_out = _tomo_stages(path)
+
     print(f"Checking HV coupling on path {path} — zeroing waveplates...")
     with tl.open_connection(COMPORT) as connection, _get_powermeter() as pm:
         tl.move_stage(HWP_IN, 0, COMPORT, connection=connection)
@@ -456,9 +466,12 @@ def check_hv_coupling(path: int):
             h, q = basis_angles[basis]
             tl.move_stage(HWP_IN, h, COMPORT, connection=connection)
             tl.move_stage(QWP_IN, q, COMPORT, connection=connection)
+            if has_pbs:
+                tl.move_stage(hwp_out, tomo_angles[basis][0], COMPORT, connection=connection)
+                tl.move_stage(qwp_out, tomo_angles[basis][1], COMPORT, connection=connection)
             val, _ = pm.read(n=tl.N_READS)
             readings[basis] = val
-            print(f"  Send {basis}: {val * 1000:.4f} mW")
+            print(f"  Send {basis}" + (f", analyze {basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
     tl.beep()
 
     biggest = max(readings.values())

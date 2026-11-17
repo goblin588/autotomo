@@ -151,18 +151,27 @@ def check_polarisation():
 
 def check_hv():
     """HV symmetry check: send H, then V, with every other waveplate zeroed
-    so the exit lands entirely on the chosen path, and read the power meter
-    raw (no output-basis analysis) -- H and V should come out the same
-    power.
+    so the exit lands entirely on the chosen path -- H and V should come
+    out the same power.
 
     Path 2 is the all-zero configuration (loop keeps everything circulating
     there). Path 1 needs HWP_1/HWP_12 at 45 deg as well to reroute the exit;
     their QWPs, and everything else, stay at 0.
+
+    With an output PBS installed, the power meter only sees one of its two
+    ports, so the output analyzer (tom1 for path 1, out2 for path 2) is
+    swept to match each basis as it's sent (send H, analyze H; send V,
+    analyze V) -- otherwise half the light misses the detector regardless
+    of HV symmetry. Without a PBS there's nothing to analyze into, so the
+    analyzer stays at its zeroed pass-through angle and the power meter
+    reads everything.
     """
     path = input("Which path to check (1/2): ").strip()
     if path not in ('1', '2'):
         print("  Unrecognised path — skipping.")
         return
+    has_pbs = input("Output PBS installed? [y/N]: ").strip().lower() == 'y'
+    hwp_out, qwp_out, _, _ = _PAIRS['tom1' if path == '1' else 'out2']
 
     print("  Zeroing every waveplate...")
     for wp in _STAGE_MAP.values():
@@ -179,9 +188,12 @@ def check_hv():
         for basis in ('H', 'V'):
             tl.move_stage(hwp_in, basis_angles[basis][0], COMPORT)
             tl.move_stage(qwp_in, basis_angles[basis][1], COMPORT)
+            if has_pbs:
+                tl.move_stage(hwp_out, tomo_angles[basis][0], COMPORT)
+                tl.move_stage(qwp_out, tomo_angles[basis][1], COMPORT)
             val, _ = pm.read(n=tl.N_READS)
             readings[basis] = val
-            print(f"  Send {basis}: {val * 1000:.4f} mW")
+            print(f"  Send {basis}" + (f", analyze {basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
 
     biggest = max(readings.values())
     match = min(readings.values()) / biggest * 100 if biggest else 0.0
