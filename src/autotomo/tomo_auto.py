@@ -433,22 +433,29 @@ def multi_run(angles, path: int = 2):
 _HV_CHECK_N_READS = 100  # much longer than tl.N_READS (50) -- tighter stats for this check
 
 
+_FLIP_BASIS = {'H': 'V', 'V': 'H'}
+
+
 def check_hv_coupling(path: int):
     """HV symmetry check: send H, then V, with every interferometer
     waveplate zeroed so the exit lands entirely on the chosen path -- H and
     V should come out the same power.
 
     Path 2 is the all-zero configuration (loop keeps everything circulating
-    there). Path 1 additionally needs HWP_1/HWP_12 at 45 deg to reroute the
-    exit; their QWPs, and everything else, stay at 0.
+    there) and has no polarization flip: H arrives as H, V as V. Path 1
+    additionally needs HWP_1/HWP_12 at 45 deg to reroute the exit there at
+    all -- their QWPs, and everything else, stay at 0 -- but that routing
+    only works via a PBS crossing that flips polarization: H arrives at
+    path 1 as V, and V arrives as H.
 
-    With an output PBS installed, the power meter only sees one of its two
-    ports, so the output analyzer (TOM_1 for path 1, OUT_2 for path 2) is
-    swept to match each basis as it's sent (send H, analyze H; send V,
-    analyze V) -- otherwise half the light misses the detector regardless
-    of HV symmetry. Without a PBS there's nothing to analyze into, so the
-    analyzer stays at its zeroed pass-through angle and the power meter
-    reads everything.
+    So with an output PBS installed (the power meter then only sees one of
+    its two ports), the analyzer (TOM_1 for path 1, OUT_2 for path 2) is
+    swept to whichever basis is actually arriving: the sent basis on path
+    2, the flipped one on path 1 (send H, analyze V; send V, analyze H).
+    Analyzing the sent basis on path 1 would read near zero regardless of
+    real HV symmetry. Without a PBS there's nothing to analyze into, so
+    the analyzer stays at its zeroed pass-through angle and the power
+    meter reads everything.
     """
     has_pbs = input("Output PBS installed? [y/N]: ").strip().lower() == 'y'
     hwp_out, qwp_out = _tomo_stages(path)
@@ -470,11 +477,12 @@ def check_hv_coupling(path: int):
             tl.move_stage(HWP_IN, h, COMPORT, connection=connection)
             tl.move_stage(QWP_IN, q, COMPORT, connection=connection)
             if has_pbs:
-                tl.move_stage(hwp_out, tomo_angles[basis][0], COMPORT, connection=connection)
-                tl.move_stage(qwp_out, tomo_angles[basis][1], COMPORT, connection=connection)
+                analyze_basis = _FLIP_BASIS[basis] if path == 1 else basis
+                tl.move_stage(hwp_out, tomo_angles[analyze_basis][0], COMPORT, connection=connection)
+                tl.move_stage(qwp_out, tomo_angles[analyze_basis][1], COMPORT, connection=connection)
             val, _ = pm.read(n=_HV_CHECK_N_READS)
             readings[basis] = val
-            print(f"  Send {basis}" + (f", analyze {basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
+            print(f"  Send {basis}" + (f", analyze {analyze_basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
     tl.beep()
 
     biggest = max(readings.values())

@@ -152,22 +152,29 @@ def check_polarisation():
 _HV_CHECK_N_READS = 100  # much longer than tl.N_READS (50) -- tighter stats for this check
 
 
+_FLIP_BASIS = {'H': 'V', 'V': 'H'}
+
+
 def check_hv():
     """HV symmetry check: send H, then V, with every other waveplate zeroed
     so the exit lands entirely on the chosen path -- H and V should come
     out the same power.
 
     Path 2 is the all-zero configuration (loop keeps everything circulating
-    there). Path 1 needs HWP_1/HWP_12 at 45 deg as well to reroute the exit;
-    their QWPs, and everything else, stay at 0.
+    there) and has no polarization flip: H arrives as H, V as V. Path 1
+    needs HWP_1/HWP_12 at 45 deg as well to reroute the exit there at all
+    -- their QWPs, and everything else, stay at 0 -- but that routing only
+    works via a PBS crossing that flips polarization: H arrives at path 1
+    as V, and V arrives as H.
 
-    With an output PBS installed, the power meter only sees one of its two
-    ports, so the output analyzer (tom1 for path 1, out2 for path 2) is
-    swept to match each basis as it's sent (send H, analyze H; send V,
-    analyze V) -- otherwise half the light misses the detector regardless
-    of HV symmetry. Without a PBS there's nothing to analyze into, so the
-    analyzer stays at its zeroed pass-through angle and the power meter
-    reads everything.
+    So with an output PBS installed (the power meter then only sees one of
+    its two ports), the analyzer (tom1 for path 1, out2 for path 2) is
+    swept to whichever basis is actually arriving: the sent basis on path
+    2, the flipped one on path 1 (send H, analyze V; send V, analyze H).
+    Analyzing the sent basis on path 1 would read near zero regardless of
+    real HV symmetry. Without a PBS there's nothing to analyze into, so
+    the analyzer stays at its zeroed pass-through angle and the power
+    meter reads everything.
     """
     path = input("Which path to check (1/2): ").strip()
     if path not in ('1', '2'):
@@ -192,11 +199,12 @@ def check_hv():
             tl.move_stage(hwp_in, basis_angles[basis][0], COMPORT)
             tl.move_stage(qwp_in, basis_angles[basis][1], COMPORT)
             if has_pbs:
-                tl.move_stage(hwp_out, tomo_angles[basis][0], COMPORT)
-                tl.move_stage(qwp_out, tomo_angles[basis][1], COMPORT)
+                analyze_basis = _FLIP_BASIS[basis] if path == '1' else basis
+                tl.move_stage(hwp_out, tomo_angles[analyze_basis][0], COMPORT)
+                tl.move_stage(qwp_out, tomo_angles[analyze_basis][1], COMPORT)
             val, _ = pm.read(n=_HV_CHECK_N_READS)
             readings[basis] = val
-            print(f"  Send {basis}" + (f", analyze {basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
+            print(f"  Send {basis}" + (f", analyze {analyze_basis}" if has_pbs else "") + f": {val * 1000:.4f} mW")
 
     biggest = max(readings.values())
     match = min(readings.values()) / biggest * 100 if biggest else 0.0
